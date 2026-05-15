@@ -1,0 +1,26 @@
+{
+  "name": "portal-ultralam",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3600",
+    "build": "next build",
+    "start": "next start -p 3600"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "next": "^16.2.6",
+    "nodemailer": "^6.9.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^5.2.0",
+    "@types/node": "^20",
+    "@types/nodemailer": "^6.4.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}
