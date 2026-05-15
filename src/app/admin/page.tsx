@@ -622,15 +622,49 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
    ============================================================ */
 function UsuariosTab({ token, flash }: any) {
   const [users, setUsers] = useState<any[]>([])
+  const [sessions, setSessions] = useState<any[]>([])
   const [q, setQ] = useState('')
   const [busyRow, setBusyRow] = useState<string | null>(null)
   const [editUser, setEditUser] = useState<any | null>(null)
+  const [newUserOpen, setNewUserOpen] = useState(false)
+  const [confirmOtp, setConfirmOtp] = useState<string | null>(null)
 
   async function load() {
     const r = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     if (r.ok) setUsers(r.users)
   }
-  useEffect(() => { load() }, [])
+  async function loadSessions() {
+    const r = await fetch('/api/admin/sessions', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    if (r.ok) setSessions(r.sessions)
+  }
+  useEffect(() => { load(); loadSessions() }, [])
+
+  async function createUser(payload: any) {
+    const r = await fetch('/api/users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    }).then(r => r.json())
+    if (r.ok) { flash('ok', `Usuario ${payload.email} creado`); setNewUserOpen(false); load() }
+    else flash('err', r.error || 'Error al crear')
+  }
+
+  async function clearOtp(email: string) {
+    const r = await fetch('/api/admin/clear-otp', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ email }),
+    }).then(r => r.json())
+    if (r.ok) { flash('ok', `OTP limpiado para ${email}`); setConfirmOtp(null) }
+    else flash('err', r.error)
+  }
+
+  async function killSession(t: string) {
+    if (!confirm('¿Cerrar esta sesión?')) return
+    const r = await fetch('/api/admin/sessions', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ token: t }),
+    }).then(r => r.json())
+    if (r.ok) { flash('ok', 'Sesión cerrada'); loadSessions() }
+  }
 
   /** Toggle robusto con optimistic update */
   async function toggleRol(u: any, rol: string) {
@@ -713,13 +747,16 @@ function UsuariosTab({ token, flash }: any) {
 
   return (
     <>
-      <Card title="Usuarios y roles">
+      <Card title={`Usuarios y roles (${users.length})`}>
         <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 10, lineHeight: 1.5 }}>
           <strong>Rol base:</strong> usa el desplegable para cambiarlo (incluye quitar/dar ADMIN).<br />
           <strong>Permisos extra:</strong> usa los checkboxes para agregar permisos adicionales sin cambiar el rol base.<br />
-          Los cambios se guardan automáticamente. Click en "✎" para editar el perfil completo.
+          Los cambios se guardan automáticamente. Click en "✎" para editar perfil, "🔑" para limpiar OTP.
         </div>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por email o nombre..." style={{ ...input, marginBottom: 12 }} />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por email o nombre..." style={{ ...input, flex: '1 1 240px' }} />
+          <button onClick={() => setNewUserOpen(true)} style={btnPrimary}>+ Nuevo usuario</button>
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -727,8 +764,9 @@ function UsuariosTab({ token, flash }: any) {
                 <Th2>Usuario</Th2>
                 <Th2>Rol base</Th2>
                 {ROLES_DISPONIBLES.map(r => <Th2 key={r}><span style={{ fontSize: 10, fontWeight: 700 }}>{r}</span></Th2>)}
+                <Th2>Último acceso</Th2>
                 <Th2>Estado</Th2>
-                <Th2>Perfil</Th2>
+                <Th2>Acciones</Th2>
               </tr>
             </thead>
             <tbody>
@@ -790,6 +828,12 @@ function UsuariosTab({ token, flash }: any) {
                       )
                     })}
                     <Td2>
+                      <div style={{ fontSize: 11, color: 'var(--ul-text-muted)' }}>
+                        {u.ultimo_acceso ? new Date(u.ultimo_acceso).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : <span style={{ opacity: .5 }}>Nunca</span>}
+                      </div>
+                      {u.login_count != null && <div style={{ fontSize: 10, color: 'var(--ul-text-subtle)' }}>{u.login_count} ingreso{u.login_count === 1 ? '' : 's'}</div>}
+                    </Td2>
+                    <Td2>
                       <button onClick={() => toggleEstado(u)} disabled={busyRow === u.id + ':estado'} style={{
                         ...btnSm,
                         background: inactivo ? 'transparent' : 'rgba(52,211,153,.12)',
@@ -798,7 +842,10 @@ function UsuariosTab({ token, flash }: any) {
                       }}>{inactivo ? 'INACTIVO · Activar' : 'ACTIVO · Desactivar'}</button>
                     </Td2>
                     <Td2>
-                      <button onClick={() => setEditUser(u)} style={btnSm} title="Editar perfil">✎ Editar</button>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button onClick={() => setEditUser(u)} style={btnSm} title="Editar perfil">✎</button>
+                        <button onClick={() => setConfirmOtp(u.email)} style={{ ...btnSm, color: 'var(--ul-warning)', borderColor: 'var(--ul-warning)' }} title="Limpiar OTP (resetear intentos fallidos)">🔑</button>
+                      </div>
                     </Td2>
                   </tr>
                 )
@@ -807,8 +854,92 @@ function UsuariosTab({ token, flash }: any) {
           </table>
         </div>
       </Card>
+
+      {/* Sesiones activas */}
+      {sessions.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <Card title={`Sesiones activas (${sessions.length})`}>
+            <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 10 }}>
+              Cierra sesiones para forzar nuevo login del usuario.
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--ul-surface-2)' }}>
+                    <Th2>Email</Th2><Th2>Rol</Th2><Th2>Última actividad</Th2><Th2>Expira</Th2><Th2></Th2>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((s: any) => (
+                    <tr key={s.token} style={{ borderBottom: '1px solid var(--ul-border)' }}>
+                      <Td2>{s.email}</Td2>
+                      <Td2><span style={{ ...miniBadge, background: s.rol === 'ADMIN' ? 'var(--ul-accent)' : 'var(--ul-surface-2)', color: s.rol === 'ADMIN' ? 'var(--ul-accent-fg)' : 'var(--ul-text)' }}>{s.rol}</span></Td2>
+                      <Td2><span style={{ fontSize: 11, color: 'var(--ul-text-muted)' }}>{s.last_active ? new Date(s.last_active).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</span></Td2>
+                      <Td2><span style={{ fontSize: 11, color: 'var(--ul-text-muted)' }}>{new Date(s.expires_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span></Td2>
+                      <Td2><button onClick={() => killSession(s.token)} style={{ ...btnSm, color: 'var(--ul-danger)', borderColor: 'var(--ul-danger)' }}>Cerrar</button></Td2>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {editUser && <EditUserModal user={editUser} token={token} onSave={saveUserProfile} onClose={() => setEditUser(null)} />}
+      {newUserOpen && <NewUserModal onCreate={createUser} onClose={() => setNewUserOpen(false)} />}
+      {confirmOtp && (
+        <div onClick={() => setConfirmOtp(null)} style={{ position: 'fixed', inset: 0, background: 'var(--ul-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 400, background: 'var(--ul-bg-elev)', border: '1px solid var(--ul-border)', borderRadius: 14, padding: 22 }}>
+            <h3 className="ul-display" style={{ fontSize: 16, color: 'var(--ul-text)', marginBottom: 10 }}>Limpiar OTP</h3>
+            <p style={{ fontSize: 13, color: 'var(--ul-text-muted)', marginBottom: 18, lineHeight: 1.5 }}>
+              Esto borrará los códigos OTP pendientes y reseteará los intentos fallidos de <strong style={{ color: 'var(--ul-text)' }}>{confirmOtp}</strong>.
+              <br /><br />Útil si el usuario quedó bloqueado por demasiados intentos.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmOtp(null)} style={btnGhost}>Cancelar</button>
+              <button onClick={() => clearOtp(confirmOtp)} style={btnPrimary}>Limpiar OTP</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  )
+}
+
+function NewUserModal({ onCreate, onClose }: { onCreate: (p: any) => void; onClose: () => void }) {
+  const [form, setForm] = useState({ email: '', nombre: '', rol: 'USUARIO', puesto: '', departamento: '', telefono: '' })
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--ul-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--ul-bg-elev)', border: '1px solid var(--ul-border)', borderRadius: 14, padding: 22, maxHeight: '92vh', overflowY: 'auto' }}>
+        <h3 className="ul-display" style={{ fontSize: 16, color: 'var(--ul-text)', marginBottom: 4 }}>Nuevo usuario</h3>
+        <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 18 }}>
+          El usuario podrá ingresar con su email solicitando un código OTP.
+        </div>
+        <Field label="Email *"><input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={input} placeholder="email@ultralam.com.mx" /></Field>
+        <Field label="Nombre"><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} style={input} /></Field>
+        <Field label="Rol base">
+          <select value={form.rol} onChange={e => setForm({ ...form, rol: e.target.value })} style={input}>
+            {ROLES_BASE.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </Field>
+        <Row>
+          <Field label="Puesto"><input value={form.puesto} onChange={e => setForm({ ...form, puesto: e.target.value })} style={input} /></Field>
+          <Field label="Departamento"><input value={form.departamento} onChange={e => setForm({ ...form, departamento: e.target.value })} style={input} /></Field>
+        </Row>
+        <Field label="Teléfono"><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} style={input} /></Field>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={btnGhost}>Cancelar</button>
+          <button
+            onClick={() => {
+              if (!form.email.trim()) return alert('Email requerido')
+              onCreate({ ...form, email: form.email.trim().toLowerCase() })
+            }}
+            style={btnPrimary}
+          >Crear usuario</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
