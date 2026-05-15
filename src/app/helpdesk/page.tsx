@@ -369,7 +369,7 @@ export default function HelpdeskPage(){
         {key:'kanban',label:'Kanban',icon:'⊞'},
         {key:'tickets',label:'Tickets',icon:'☰'},
         {key:'nuevo',label:'Nuevo ticket',icon:'+'},
-        ...(esAdminHd ? [{key:'users',label:'Usuarios',icon:'◎'},{key:'kb',label:'KB',icon:'◈'},{key:'config',label:'Config',icon:'⚙'}] : []),
+        ...(esAdminHd ? [{key:'kb',label:'KB',icon:'◈'},{key:'config',label:'Config',icon:'⚙'}] : []),
       ]
     : [
         {key:'tickets',label:'Mis tickets',icon:'☰'},
@@ -664,78 +664,7 @@ export default function HelpdeskPage(){
           </div>}
         </div>}
 
-        {/* USUARIOS */}
-        {view==='users'&&<div>
-          <div style={{fontSize:'18px',fontWeight:600,marginBottom:'20px'}}>Usuarios</div>
-          <Msg2/>
-          {userRol==='ADMIN'&&<div style={{background:surface,border:`1px solid ${border}`,borderRadius:'10px',padding:'20px',marginBottom:'16px'}}>
-            <div style={{fontSize:'13px',fontWeight:500,marginBottom:'12px'}}>Agregar usuario</div>
-            <div style={{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'flex-end'}}>
-              <div><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Email</div><input style={{...inp,width:'220px'}} placeholder="email@empresa.com" value={newUser.email} onChange={e=>setNewUser({...newUser,email:e.target.value})}/></div>
-              <div><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Nombre</div><input style={{...inp,width:'160px'}} placeholder="Nombre completo" value={newUser.nombre} onChange={e=>setNewUser({...newUser,nombre:e.target.value})}/></div>
-              <div><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Rol</div>
-                <select style={{...inp,width:'130px'}} value={newUser.rol} onChange={e=>setNewUser({...newUser,rol:e.target.value})}>
-                  <option value="USUARIO">Usuario</option><option value="HELPDESK">Helpdesk</option><option value="ADMIN">Admin</option>
-                </select>
-              </div>
-              <button style={btn} onClick={createUser}>Agregar</button>
-            </div>
-          </div>}
-          <div style={{background:surface,border:`1px solid ${border}`,borderRadius:'10px',overflow:'hidden',marginBottom:'20px'}}>
-            <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><TH cols={['Email','Nombre','Rol','Estado','Último acceso','Acciones']}/>
-              <tbody>{users.map(u=>(
-                <tr key={u.id} style={{borderBottom:`1px solid ${border}`}}>
-                  <td style={{padding:'10px 12px',fontSize:'13px'}}>{u.email}</td>
-                  <td style={{padding:'10px 12px',fontSize:'13px',color:muted}}>{u.nombre||'—'}</td>
-                  <td style={{padding:'10px 12px'}}><Badge label={u.rol} color={u.rol==='ADMIN'?'#ef4444':u.rol==='HELPDESK'?'#8b5cf6':'#6b7280'}/></td>
-                  <td style={{padding:'10px 12px'}}><Badge label={u.estado} color={u.estado==='ACTIVO'?'#10b981':'#6b7280'}/></td>
-                  <td style={{padding:'10px 12px',fontSize:'11px',color:muted}}>{fmtDate(u.ultimo_acceso)}</td>
-                  <td style={{padding:'10px 12px',display:'flex',gap:'6px',flexWrap:'wrap'}}>
-                    {userRol==='ADMIN'&&<button style={{...btnSec,padding:'4px 10px',fontSize:'11px'}} onClick={()=>setSelectedUser(u)}>Editar</button>}
-                    {userRol==='ADMIN'&&<button style={{...btnSec,padding:'4px 10px',fontSize:'11px',color:'#f59e0b',borderColor:'#f59e0b'}} onClick={()=>setClearOtpEmail(u.email)}>Limpiar OTP</button>}
-                  </td>
-                </tr>
-              ))}</tbody>
-            </table></div>
-          </div>
-          {clearOtpEmail&&<div style={{background:surface,border:`1px solid ${border}`,borderRadius:'10px',padding:'16px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
-            <span style={{fontSize:'13px'}}>¿Limpiar OTP de <strong>{clearOtpEmail}</strong>?</span>
-            <button style={btn} onClick={clearOtp}>Confirmar</button>
-            <button style={btnSec} onClick={()=>setClearOtpEmail('')}>Cancelar</button>
-          </div>}
-          {userRol==='ADMIN'&&sessions.length>0&&<div style={{background:surface,border:`1px solid ${border}`,borderRadius:'10px',overflow:'hidden'}}>
-            <div style={{padding:'14px 16px',borderBottom:`1px solid ${border}`,fontSize:'13px',fontWeight:500}}>Sesiones activas ({sessions.length})</div>
-            <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><TH cols={['Email','Rol','Última actividad','Expira','']}/>
-              <tbody>{sessions.map((s,i)=>(
-                <tr key={i} style={{borderBottom:`1px solid ${border}`}}>
-                  <td style={{padding:'10px 12px',fontSize:'13px'}}>{s.email}</td>
-                  <td style={{padding:'10px 12px'}}><Badge label={s.rol} color={s.rol==='ADMIN'?'#ef4444':'#8b5cf6'}/></td>
-                  <td style={{padding:'10px 12px',fontSize:'12px',color:muted}}>{fmtDate(s.last_active)}</td>
-                  <td style={{padding:'10px 12px',fontSize:'12px',color:muted}}>{fmtDate(s.expires_at)}</td>
-                  <td style={{padding:'10px 12px'}}><button style={{...btnDanger,padding:'4px 10px',fontSize:'11px'}} onClick={()=>killSession(s.token)}>Cerrar</button></td>
-                </tr>
-              ))}</tbody>
-            </table></div>
-          </div>}
-          {selectedUser&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
-            <div style={{background:surface,borderRadius:'12px',padding:'24px',width:'400px'}}>
-              <div style={{fontSize:'15px',fontWeight:600,marginBottom:'16px'}}>Editar usuario</div>
-              <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Email</div><div style={{fontSize:'13px',padding:'8px',background:'var(--ul-surface-2)',borderRadius:'6px'}}>{selectedUser.email}</div></div>
-              <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Nombre</div><input style={inp} value={selectedUser.nombre||''} onChange={e=>setSelectedUser({...selectedUser,nombre:e.target.value})}/></div>
-              <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Rol</div>
-                <select style={inp} value={selectedUser.rol} onChange={e=>setSelectedUser({...selectedUser,rol:e.target.value})}>
-                  <option value="USUARIO">Usuario</option><option value="HELPDESK">Helpdesk</option><option value="ADMIN">Admin</option>
-                </select>
-              </div>
-              <div style={{marginBottom:'16px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Estado</div>
-                <select style={inp} value={selectedUser.estado} onChange={e=>setSelectedUser({...selectedUser,estado:e.target.value})}>
-                  <option value="ACTIVO">Activo</option><option value="INACTIVO">Inactivo</option>
-                </select>
-              </div>
-              <div style={{display:'flex',gap:'8px'}}><button style={btn} onClick={saveUser}>Guardar</button><button style={btnSec} onClick={()=>setSelectedUser(null)}>Cancelar</button></div>
-            </div>
-          </div>}
-        </div>}
+        {/* USUARIOS → movido a /admin (panel general). Helpdesk ya no gestiona usuarios. */}
 
         {/* KB */}
         {view==='kb'&&<div>

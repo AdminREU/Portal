@@ -7,6 +7,7 @@ type User = { email: string; nombre?: string; rol: string; roles_extra?: string[
 type Tab = 'avisos' | 'flags' | 'usuarios' | 'ui' | 'config'
 
 const ROLES_DISPONIBLES = ['HELPDESK', 'COMPRAS', 'APROBADOR', 'ADMIN']
+const ROLES_BASE = ['USUARIO', 'HELPDESK', 'COMPRAS', 'APROBADOR', 'ADMIN']
 
 export default function AdminPage() {
   const router = useRouter()
@@ -640,7 +641,6 @@ function UsuariosTab({ token, flash }: any) {
       ? currentExtras.filter((r: string) => r !== rol)
       : Array.from(new Set([...currentExtras, rol]))
 
-    // Optimistic: actualizar UI inmediatamente
     setUsers(us => us.map(x => x.id === u.id ? { ...x, roles_extra: newExtras } : x))
 
     try {
@@ -651,11 +651,34 @@ function UsuariosTab({ token, flash }: any) {
       }).then(r => r.json())
       if (!r.ok) throw new Error(r.error)
       flash('ok', `${has ? '✗ Removido' : '✓ Asignado'} ${rol} · ${u.email}`)
-      // Refresca con datos del servidor para consistencia
       if (r.user) setUsers(us => us.map(x => x.id === u.id ? r.user : x))
     } catch (e: any) {
       flash('err', e.message || 'Error al actualizar rol')
-      load() // recargar para deshacer optimistic
+      load()
+    } finally { setBusyRow(null) }
+  }
+
+  /** Cambiar rol base */
+  async function changeRolBase(u: any, nuevoRol: string) {
+    if (u.rol === nuevoRol) return
+    // Confirmar downgrade desde ADMIN
+    if (u.rol === 'ADMIN' && nuevoRol !== 'ADMIN') {
+      if (!confirm(`¿Quitar permisos ADMIN a ${u.email}? Cambiará su rol base a ${nuevoRol}.`)) return
+    }
+    setBusyRow(u.id + ':rolbase')
+    setUsers(us => us.map(x => x.id === u.id ? { ...x, rol: nuevoRol } : x))
+    try {
+      const r = await fetch(`/api/users/${u.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rol: nuevoRol }),
+      }).then(r => r.json())
+      if (!r.ok) throw new Error(r.error)
+      flash('ok', `Rol base de ${u.email}: ${nuevoRol}`)
+      if (r.user) setUsers(us => us.map(x => x.id === u.id ? r.user : x))
+    } catch (e: any) {
+      flash('err', e.message || 'Error al cambiar rol base')
+      load()
     } finally { setBusyRow(null) }
   }
 
@@ -691,9 +714,10 @@ function UsuariosTab({ token, flash }: any) {
   return (
     <>
       <Card title="Usuarios y roles">
-        <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 10 }}>
-          Click en el checkbox para asignar/quitar el rol. Los cambios se guardan automáticamente.
-          Click en "✎" para editar el perfil del usuario (nombre, foto, depto, etc).
+        <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 10, lineHeight: 1.5 }}>
+          <strong>Rol base:</strong> usa el desplegable para cambiarlo (incluye quitar/dar ADMIN).<br />
+          <strong>Permisos extra:</strong> usa los checkboxes para agregar permisos adicionales sin cambiar el rol base.<br />
+          Los cambios se guardan automáticamente. Click en "✎" para editar el perfil completo.
         </div>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por email o nombre..." style={{ ...input, marginBottom: 12 }} />
         <div style={{ overflowX: 'auto' }}>
@@ -725,20 +749,41 @@ function UsuariosTab({ token, flash }: any) {
                         </div>
                       </div>
                     </Td2>
-                    <Td2><span style={{ ...miniBadge, background: u.rol === 'ADMIN' ? 'var(--ul-accent)' : 'var(--ul-surface-2)', color: u.rol === 'ADMIN' ? 'var(--ul-accent-fg)' : 'var(--ul-text)' }}>{u.rol}</span></Td2>
+                    <Td2>
+                      <select
+                        value={u.rol}
+                        onChange={e => changeRolBase(u, e.target.value)}
+                        disabled={busyRow === u.id + ':rolbase'}
+                        style={{
+                          ...input,
+                          padding: '5px 8px', fontSize: 12, minWidth: 110,
+                          background: u.rol === 'ADMIN' ? 'var(--ul-accent)' : 'var(--ul-surface-2)',
+                          color: u.rol === 'ADMIN' ? 'var(--ul-accent-fg)' : 'var(--ul-text)',
+                          fontWeight: u.rol === 'ADMIN' ? 700 : 500,
+                          border: '1px solid ' + (u.rol === 'ADMIN' ? 'var(--ul-accent)' : 'var(--ul-border)'),
+                        }}
+                      >
+                        {ROLES_BASE.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </Td2>
                     {ROLES_DISPONIBLES.map(r => {
                       const tieneRol = extras.includes(r)
                       const esRolBase = u.rol === r
                       const busy = busyRow === (u.id + ':' + r)
+                      // Checkbox refleja si tiene el rol (por base O por extra)
+                      const checked = tieneRol || esRolBase
                       return (
                         <Td2 key={r}>
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: esRolBase ? 'not-allowed' : 'pointer', opacity: busy ? .5 : 1 }} title={esRolBase ? 'Es su rol base, no se puede modificar aquí' : (tieneRol ? `Click para quitar ${r}` : `Click para asignar ${r}`)}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: esRolBase ? 'help' : 'pointer', opacity: busy ? .5 : 1 }}
+                            title={esRolBase
+                              ? `${r} es el rol BASE. Para quitarlo, cambia el rol base en la columna anterior.`
+                              : (tieneRol ? `Click para quitar ${r}` : `Click para asignar ${r}`)}>
                             <input
                               type="checkbox"
-                              checked={tieneRol || esRolBase}
+                              checked={checked}
                               onChange={() => !esRolBase && !busy && toggleRol(u, r)}
                               disabled={esRolBase || busy}
-                              style={{ accentColor: 'var(--ul-accent)', width: 16, height: 16, cursor: esRolBase ? 'not-allowed' : 'pointer' }}
+                              style={{ accentColor: 'var(--ul-accent)', width: 16, height: 16, cursor: esRolBase ? 'help' : 'pointer' }}
                             />
                           </label>
                         </Td2>
