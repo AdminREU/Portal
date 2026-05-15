@@ -6,35 +6,48 @@ import { getTheme, setTheme, type UlTheme } from '@/lib/theme'
 type NavItem = { key: string; label: string; icon: ReactNode; href?: string; onClick?: () => void; badge?: string | number }
 type NavGroup = { title?: string; items: NavItem[] }
 
+type Notif = { id: string; tipo: string; titulo?: string; mensaje: string; link?: string; leida: boolean; created_at: string; icono?: string; color?: string }
+
 type Props = {
-  app?: 'portal' | 'helpdesk' | 'compras'
+  app?: 'portal' | 'helpdesk' | 'compras' | 'admin'
   appLabel?: string
   appVersion?: string
+  appLogoUrl?: string
   nav?: NavGroup[]
   activeKey?: string
-  user?: { email?: string; nombre?: string; rol?: string; roles_extra?: string[] }
+  user?: { email?: string; nombre?: string; rol?: string; roles_extra?: string[]; foto_url?: string }
   children: ReactNode
   rightSlot?: ReactNode
   searchPlaceholder?: string
   onSearch?: (q: string) => void
+  showSearch?: boolean
+  showNotifications?: boolean
+  token?: string
 }
 
 export default function AppShell({
   app = 'portal',
   appLabel,
   appVersion,
+  appLogoUrl,
   nav = [],
   activeKey,
   user,
   children,
   rightSlot,
-  searchPlaceholder = 'Buscar en el portal...',
+  searchPlaceholder = 'Buscar tickets, OC, anuncios...',
   onSearch,
+  showSearch = true,
+  showNotifications = true,
+  token,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const [theme, setThemeState] = useState<UlTheme>('dark')
   const [openMenu, setOpenMenu] = useState(false)
+  const [openNotifs, setOpenNotifs] = useState(false)
+  const [notifs, setNotifs] = useState<Notif[]>([])
+  const [unread, setUnread] = useState(0)
   const [q, setQ] = useState('')
 
   useEffect(() => {
@@ -44,15 +57,46 @@ export default function AppShell({
     return () => window.removeEventListener('ul-theme-change', onChange as any)
   }, [])
 
+  // Cargar notificaciones del usuario
+  useEffect(() => {
+    if (!showNotifications) return
+    const t = token || (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null)
+    if (!t) return
+    fetch('/api/avisos/notificaciones?no_leidas=1', { headers: { Authorization: `Bearer ${t}` } })
+      .then(r => r.json()).then(d => {
+        if (d.ok) {
+          setNotifs(d.notificaciones || [])
+          setUnread((d.notificaciones || []).length)
+        }
+      }).catch(() => {})
+  }, [showNotifications, token])
+
   function flip(t: UlTheme) {
-    setTheme(t)
-    setThemeState(t)
+    setTheme(t); setThemeState(t)
   }
 
   function logout() {
     localStorage.removeItem('auth_token')
     document.cookie = 'auth_token=; path=/; max-age=0'
     router.replace('/login')
+  }
+
+  async function marcarTodasLeidas() {
+    const t = token || localStorage.getItem('auth_token')
+    if (!t) return
+    await fetch('/api/avisos/notificaciones', { method: 'PATCH', headers: { Authorization: `Bearer ${t}` } })
+    setNotifs([]); setUnread(0)
+  }
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const term = q.trim()
+    if (!term) return
+    if (onSearch) { onSearch(term); return }
+    // Búsqueda básica: enrutar al módulo más relevante
+    if (term.match(/^OC-/i)) router.push(`/compras?q=${encodeURIComponent(term)}`)
+    else if (term.match(/^TKT-?\d|^T-\d/i)) router.push(`/helpdesk?q=${encodeURIComponent(term)}`)
+    else router.push(`/portal?q=${encodeURIComponent(term)}`)
   }
 
   const initial = (user?.nombre || user?.email || 'U').charAt(0).toUpperCase()
@@ -65,7 +109,9 @@ export default function AppShell({
       {/* ─── SIDEBAR ─────────────────────────────────────────── */}
       <aside style={S.sidebar}>
         <div style={S.brand} onClick={() => router.push('/portal')}>
-          <UltraMark />
+          {appLogoUrl
+            ? <img src={appLogoUrl} alt="" style={S.brandLogo} />
+            : <UltraMark />}
           <div>
             <div className="ul-display" style={S.brandTitle}>{appLabel || 'ULTRA'}</div>
             {appVersion && <div style={S.brandSub}>{appVersion}</div>}
@@ -109,13 +155,16 @@ export default function AppShell({
 
         {/* User card en sidebar */}
         <div style={S.sidebarUser}>
-          <div style={S.userAvatar}>{initial}</div>
+          {user?.foto_url
+            ? <img src={user.foto_url} alt="" style={{ ...S.userAvatar, objectFit: 'cover' }} />
+            : <div style={S.userAvatar}>{initial}</div>
+          }
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={S.userName}>{user?.nombre || user?.email?.split('@')[0] || 'Usuario'}</div>
             <div style={S.userRol}>{user?.rol?.toLowerCase() || ''}</div>
           </div>
           <button onClick={logout} style={S.iconBtn} title="Cerrar sesión" aria-label="Cerrar sesión">
-            <IconLogout />
+            <span style={{ fontSize: 14 }}>↪</span>
           </button>
         </div>
       </aside>
@@ -126,18 +175,23 @@ export default function AppShell({
         <header style={S.topbar}>
           <div style={S.topbarLeft}>
             <span style={S.appPill}>
-              {app === 'portal' ? '◆ Portal interno' : app === 'helpdesk' ? '🎫 Helpdesk' : '🛒 Compras'}
+              {app === 'portal' ? '◆ Portal interno'
+                : app === 'helpdesk' ? '🎫 Helpdesk'
+                : app === 'compras' ? '🛒 Compras'
+                : '⚙ Administración'}
             </span>
 
-            <div style={S.searchWrap}>
-              <span style={S.searchIcon}>⌕</span>
-              <input
-                value={q}
-                onChange={e => { setQ(e.target.value); onSearch?.(e.target.value) }}
-                placeholder={searchPlaceholder}
-                style={S.searchInput}
-              />
-            </div>
+            {showSearch && (
+              <form onSubmit={handleSearch} style={S.searchWrap}>
+                <span style={S.searchIcon}>⌕</span>
+                <input
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  style={S.searchInput}
+                />
+              </form>
+            )}
           </div>
 
           <div style={S.topbarRight}>
@@ -145,30 +199,71 @@ export default function AppShell({
 
             {/* Theme switcher segmentado */}
             <div style={S.themeSeg} role="group" aria-label="Tema">
-              <button
-                onClick={() => flip('dark')}
+              <button onClick={() => flip('dark')}
                 style={{ ...S.themeOpt, background: theme === 'dark' ? 'var(--ul-accent)' : 'transparent', color: theme === 'dark' ? 'var(--ul-accent-fg)' : 'var(--ul-text-muted)' }}
-                aria-pressed={theme === 'dark'}
-              >Oscuro</button>
-              <button
-                onClick={() => flip('light')}
+                aria-pressed={theme === 'dark'}>Oscuro</button>
+              <button onClick={() => flip('light')}
                 style={{ ...S.themeOpt, background: theme === 'light' ? 'var(--ul-accent)' : 'transparent', color: theme === 'light' ? 'var(--ul-accent-fg)' : 'var(--ul-text-muted)' }}
-                aria-pressed={theme === 'light'}
-              >Claro</button>
+                aria-pressed={theme === 'light'}>Claro</button>
             </div>
 
-            {/* Notificaciones placeholder */}
-            <button style={S.iconBtnTop} title="Notificaciones">
-              <span style={{ position: 'relative' }}>
-                🔔
-                <span style={S.dotBadge} />
-              </span>
-            </button>
+            {/* Notificaciones */}
+            {showNotifications && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setOpenNotifs(v => !v)}
+                  style={S.iconBtnTop}
+                  title="Notificaciones"
+                  aria-label="Notificaciones"
+                >
+                  <span style={{ position: 'relative' }}>
+                    🔔
+                    {unread > 0 && <span style={S.dotBadge}>{unread > 9 ? '9+' : unread}</span>}
+                  </span>
+                </button>
+                {openNotifs && (
+                  <>
+                    <div onClick={() => setOpenNotifs(false)} style={S.menuBackdrop} />
+                    <div style={{ ...S.menu, minWidth: 340, maxHeight: 420, overflowY: 'auto', right: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid var(--ul-border)', marginBottom: 4, position: 'sticky', top: 0, background: 'var(--ul-bg-elev)', zIndex: 1 }}>
+                        <div className="ul-display" style={{ fontSize: 12, letterSpacing: 1, color: 'var(--ul-text)' }}>NOTIFICACIONES</div>
+                        {unread > 0 && <button onClick={marcarTodasLeidas} style={{ background: 'transparent', border: 'none', color: 'var(--ul-text-muted)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Marcar todas leídas</button>}
+                      </div>
+                      {notifs.length === 0 ? (
+                        <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: 12, color: 'var(--ul-text-subtle)' }}>
+                          ✓ Sin notificaciones nuevas
+                        </div>
+                      ) : notifs.map(n => (
+                        <button
+                          key={n.id}
+                          onClick={() => { setOpenNotifs(false); if (n.link) router.push(n.link) }}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', background: 'transparent', border: 'none', cursor: n.link ? 'pointer' : 'default', borderBottom: '1px solid var(--ul-border)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--ul-surface-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                            <span style={{ fontSize: 16 }}>{n.icono || iconForTipo(n.tipo)}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              {n.titulo && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ul-text)', marginBottom: 2 }}>{n.titulo}</div>}
+                              <div style={{ fontSize: 12, color: 'var(--ul-text-muted)', lineHeight: 1.4 }}>{n.mensaje}</div>
+                              <div style={{ fontSize: 10, color: 'var(--ul-text-subtle)', marginTop: 4 }}>{timeAgo(n.created_at)}</div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* User menu */}
             <div style={{ position: 'relative' }}>
               <button onClick={() => setOpenMenu(v => !v)} style={S.userBtn}>
-                <div style={{ ...S.userAvatar, width: 30, height: 30, fontSize: 13 }}>{initial}</div>
+                {user?.foto_url
+                  ? <img src={user.foto_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
+                  : <div style={{ ...S.userAvatar, width: 30, height: 30, fontSize: 13 }}>{initial}</div>
+                }
               </button>
               {openMenu && (
                 <>
@@ -178,7 +273,7 @@ export default function AppShell({
                       <div style={S.menuName}>{user?.nombre || user?.email}</div>
                       <div style={S.menuRol}>{rolesText}</div>
                     </div>
-                    <button onClick={() => { setOpenMenu(false); router.push('/portal') }} style={S.menuItem}>◆ Portal</button>
+                    {pathname !== '/portal' && <button onClick={() => { setOpenMenu(false); router.push('/portal') }} style={S.menuItem}>◆ Portal</button>}
                     {pathname !== '/helpdesk' && <button onClick={() => { setOpenMenu(false); router.push('/helpdesk') }} style={S.menuItem}>🎫 Helpdesk</button>}
                     {pathname !== '/compras' && <button onClick={() => { setOpenMenu(false); router.push('/compras') }} style={S.menuItem}>🛒 Compras</button>}
                     <div style={S.menuSep} />
@@ -197,7 +292,7 @@ export default function AppShell({
   )
 }
 
-/* ─── Mini iconos ──────────────────────────────────────────────── */
+/* ─── Helpers ───────────────────────────────────────────────── */
 function UltraMark() {
   return (
     <div style={{ width: 36, height: 36, borderRadius: 9, background: 'var(--ul-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -205,125 +300,62 @@ function UltraMark() {
     </div>
   )
 }
-function IconLogout() {
-  return <span style={{ fontSize: 14 }}>↪</span>
+function iconForTipo(t: string): string {
+  if (t === 'ticket') return '🎫'
+  if (t === 'oc') return '🛒'
+  if (t === 'aviso') return '📢'
+  return 'ℹ'
+}
+function timeAgo(iso: string): string {
+  try {
+    const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+    if (min < 1) return 'ahora'
+    if (min < 60) return `${min}m`
+    const h = Math.floor(min / 60)
+    if (h < 24) return `${h}h`
+    const d = Math.floor(h / 24)
+    if (d < 7) return `${d}d`
+    return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+  } catch { return '' }
 }
 
-/* ─── Estilos (CSS-in-JS con CSS vars) ─────────────────────────── */
+/* ─── Estilos ──────────────────────────────────────────────── */
 const S: Record<string, React.CSSProperties> = {
-  shell: {
-    display: 'flex', minHeight: '100vh', background: 'var(--ul-bg)', color: 'var(--ul-text)',
-  },
-  sidebar: {
-    width: 240, flexShrink: 0, background: 'var(--ul-bg-elev)',
-    borderRight: '1px solid var(--ul-border)', display: 'flex', flexDirection: 'column',
-    position: 'sticky', top: 0, height: '100vh',
-  },
-  brand: {
-    padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 12,
-    cursor: 'pointer', borderBottom: '1px solid var(--ul-border)',
-  },
-  brandTitle: {
-    fontSize: 16, color: 'var(--ul-text)', lineHeight: 1, letterSpacing: '.5px',
-  },
-  brandSub: {
-    fontSize: 10, color: 'var(--ul-text-subtle)', marginTop: 3, fontWeight: 500,
-  },
+  shell: { display: 'flex', minHeight: '100vh', background: 'var(--ul-bg)', color: 'var(--ul-text)' },
+  sidebar: { width: 240, flexShrink: 0, background: 'var(--ul-bg-elev)', borderRight: '1px solid var(--ul-border)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh' },
+  brand: { padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', borderBottom: '1px solid var(--ul-border)' },
+  brandLogo: { width: 36, height: 36, borderRadius: 9, objectFit: 'cover', flexShrink: 0 },
+  brandTitle: { fontSize: 16, color: 'var(--ul-text)', lineHeight: 1, letterSpacing: '.5px' },
+  brandSub: { fontSize: 10, color: 'var(--ul-text-subtle)', marginTop: 3, fontWeight: 500 },
   nav: { flex: 1, padding: '14px 10px', overflowY: 'auto' },
-  navTitle: {
-    fontSize: 10, color: 'var(--ul-text-subtle)', textTransform: 'uppercase',
-    letterSpacing: 1, fontWeight: 700, padding: '4px 10px 8px',
-  },
-  navItem: {
-    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-    padding: '9px 11px', borderRadius: 8, border: 'none', cursor: 'pointer',
-    fontSize: 13, transition: 'background .15s, color .15s', marginBottom: 2,
-  },
+  navTitle: { fontSize: 10, color: 'var(--ul-text-subtle)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, padding: '4px 10px 8px' },
+  navItem: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 11px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, transition: 'background .15s, color .15s', marginBottom: 2 },
   navIcon: { width: 18, fontSize: 14, display: 'flex', justifyContent: 'center', alignItems: 'center' },
-  navBadge: {
-    fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 700,
-  },
-  sidebarUser: {
-    padding: '12px 14px', borderTop: '1px solid var(--ul-border)',
-    display: 'flex', alignItems: 'center', gap: 10,
-  },
-  userAvatar: {
-    width: 36, height: 36, borderRadius: '50%', background: 'var(--ul-accent)',
-    color: 'var(--ul-accent-fg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontWeight: 700, fontSize: 15, flexShrink: 0,
-  },
+  navBadge: { fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 700 },
+  sidebarUser: { padding: '12px 14px', borderTop: '1px solid var(--ul-border)', display: 'flex', alignItems: 'center', gap: 10 },
+  userAvatar: { width: 36, height: 36, borderRadius: '50%', background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, flexShrink: 0 },
   userName: { fontSize: 13, fontWeight: 600, color: 'var(--ul-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   userRol: { fontSize: 11, color: 'var(--ul-text-subtle)', textTransform: 'capitalize' },
-  iconBtn: {
-    background: 'transparent', border: '1px solid var(--ul-border)', borderRadius: 8,
-    width: 32, height: 32, cursor: 'pointer', color: 'var(--ul-text-muted)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  iconBtnTop: {
-    background: 'var(--ul-surface)', border: '1px solid var(--ul-border)', borderRadius: 999,
-    width: 36, height: 36, cursor: 'pointer', color: 'var(--ul-text)', fontSize: 14,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-  },
+  iconBtn: { background: 'transparent', border: '1px solid var(--ul-border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--ul-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  iconBtnTop: { background: 'var(--ul-surface)', border: '1px solid var(--ul-border)', borderRadius: 999, width: 36, height: 36, cursor: 'pointer', color: 'var(--ul-text)', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
-  topbar: {
-    position: 'sticky', top: 0, zIndex: 40, background: 'var(--ul-bg-elev)',
-    borderBottom: '1px solid var(--ul-border)',
-    padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14,
-    justifyContent: 'space-between',
-  },
+  topbar: { position: 'sticky', top: 0, zIndex: 40, background: 'var(--ul-bg-elev)', borderBottom: '1px solid var(--ul-border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between' },
   topbarLeft: { display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 },
   topbarRight: { display: 'flex', alignItems: 'center', gap: 10 },
-  appPill: {
-    fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
-    background: 'var(--ul-surface-2)', color: 'var(--ul-text-muted)',
-    textTransform: 'uppercase', letterSpacing: '.5px', whiteSpace: 'nowrap',
-  },
-  searchWrap: {
-    position: 'relative', flex: 1, maxWidth: 520, display: 'flex', alignItems: 'center',
-  },
-  searchIcon: {
-    position: 'absolute', left: 14, color: 'var(--ul-text-subtle)', fontSize: 14, pointerEvents: 'none',
-  },
-  searchInput: {
-    width: '100%', padding: '10px 14px 10px 36px', borderRadius: 999,
-    background: 'var(--ul-surface)', color: 'var(--ul-text)',
-    border: '1px solid var(--ul-border)', fontSize: 13, outline: 'none',
-  },
-  themeSeg: {
-    display: 'flex', alignItems: 'center', background: 'var(--ul-surface)',
-    border: '1px solid var(--ul-border)', borderRadius: 999, padding: 3, gap: 2,
-  },
-  themeOpt: {
-    border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 999,
-    fontSize: 12, fontWeight: 600, transition: 'all .15s',
-  },
-  dotBadge: {
-    position: 'absolute', top: -2, right: -3, width: 8, height: 8, borderRadius: '50%',
-    background: 'var(--ul-accent)', border: '2px solid var(--ul-bg-elev)',
-  },
-  userBtn: {
-    background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
-    borderRadius: '50%',
-  },
-  menuBackdrop: {
-    position: 'fixed', inset: 0, zIndex: 49,
-  },
-  menu: {
-    position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50,
-    minWidth: 240, background: 'var(--ul-bg-elev)',
-    border: '1px solid var(--ul-border)', borderRadius: 12,
-    boxShadow: 'var(--ul-shadow-lg)', padding: 6, animation: 'ul-fade-in .15s ease both',
-  },
-  menuHeader: {
-    padding: '10px 12px', borderBottom: '1px solid var(--ul-border)', marginBottom: 6,
-  },
+  appPill: { fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 999, background: 'var(--ul-surface-2)', color: 'var(--ul-text-muted)', textTransform: 'uppercase', letterSpacing: '.5px', whiteSpace: 'nowrap' },
+  searchWrap: { position: 'relative', flex: 1, maxWidth: 520, display: 'flex', alignItems: 'center' },
+  searchIcon: { position: 'absolute', left: 14, color: 'var(--ul-text-subtle)', fontSize: 14, pointerEvents: 'none' },
+  searchInput: { width: '100%', padding: '10px 14px 10px 36px', borderRadius: 999, background: 'var(--ul-surface)', color: 'var(--ul-text)', border: '1px solid var(--ul-border)', fontSize: 13, outline: 'none' },
+  themeSeg: { display: 'flex', alignItems: 'center', background: 'var(--ul-surface)', border: '1px solid var(--ul-border)', borderRadius: 999, padding: 3, gap: 2 },
+  themeOpt: { border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, transition: 'all .15s' },
+  dotBadge: { position: 'absolute', top: -6, right: -8, minWidth: 16, height: 16, borderRadius: 999, background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid var(--ul-bg-elev)' },
+  userBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, borderRadius: '50%' },
+  menuBackdrop: { position: 'fixed', inset: 0, zIndex: 49 },
+  menu: { position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50, minWidth: 240, background: 'var(--ul-bg-elev)', border: '1px solid var(--ul-border)', borderRadius: 12, boxShadow: 'var(--ul-shadow-lg)', padding: 6, animation: 'ul-fade-in .15s ease both' },
+  menuHeader: { padding: '10px 12px', borderBottom: '1px solid var(--ul-border)', marginBottom: 6 },
   menuName: { fontSize: 13, fontWeight: 600, color: 'var(--ul-text)' },
   menuRol: { fontSize: 11, color: 'var(--ul-text-subtle)', marginTop: 2 },
-  menuItem: {
-    display: 'block', width: '100%', textAlign: 'left',
-    padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer',
-    borderRadius: 7, fontSize: 13, color: 'var(--ul-text)',
-  },
+  menuItem: { display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 7, fontSize: 13, color: 'var(--ul-text)' },
   menuSep: { height: 1, background: 'var(--ul-border)', margin: '6px 0' },
   content: { flex: 1, padding: '28px', minWidth: 0 },
 }

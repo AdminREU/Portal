@@ -5,10 +5,11 @@ import { sendNewTicketEmail } from '@/lib/email'
 
 export async function GET(req: Request) {
   try {
-    const { email, rol } = await validateToken(getToken(req))
+    const { email, rol, rolesExtra } = await validateToken(getToken(req))
     const { searchParams } = new URL(req.url)
+    const esTecnico = rol !== 'USUARIO' || rolesExtra.includes('HELPDESK') || rolesExtra.includes('ADMIN')
     let query = supabase.from('tickets').select('*').order('fecha_creacion', { ascending: false })
-    if (rol === 'USUARIO') query = query.eq('usuario_email', email)
+    if (!esTecnico) query = query.eq('usuario_email', email)
     if (searchParams.get('estado')) query = query.eq('estado', searchParams.get('estado')!)
     if (searchParams.get('prioridad')) query = query.eq('prioridad', searchParams.get('prioridad')!)
     if (searchParams.get('q')) query = query.ilike('asunto', `%${searchParams.get('q')}%`)

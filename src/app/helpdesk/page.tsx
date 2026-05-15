@@ -27,6 +27,7 @@ export default function HelpdeskPage(){
   const [token,setToken]=useState('')
   const [userEmail,setUserEmail]=useState('')
   const [userRol,setUserRol]=useState('')
+  const [userRolesExtra,setUserRolesExtra]=useState<string[]>([])
   const [agentStatus,setAgentStatusState]=useState('disponible')
   const [agentDetail,setAgentDetail]=useState('')
   const [agentDetailDirty,setAgentDetailDirty]=useState(false)
@@ -117,6 +118,16 @@ export default function HelpdeskPage(){
         if(!res.ok){localStorage.removeItem('auth_token');router.push('/login');return}
         setToken(res.token??t);setUserEmail(res.email);setUserRol(res.rol)
         localStorage.setItem('auth_token',res.token??t)
+        // Cargar roles_extra del usuario para determinar permisos
+        fetch('/api/users/me',{headers:{Authorization:`Bearer ${res.token??t}`}}).then(r=>r.json()).then(me=>{
+          if(me.ok) {
+            const extras = Array.isArray(me.roles_extra) ? me.roles_extra : []
+            setUserRolesExtra(extras)
+            // Si no es técnico, ir directo a vista de tickets (mis tickets)
+            const tec = res.rol==='ADMIN' || res.rol==='HELPDESK' || extras.includes('ADMIN') || extras.includes('HELPDESK')
+            if (!tec) setView('tickets')
+          }
+        }).catch(()=>{})
       }).catch(()=>router.push('/login'))
     return ()=>window.removeEventListener('ul-theme-change', onThemeChange as any)
   },[])
@@ -348,7 +359,20 @@ export default function HelpdeskPage(){
   function TagList({items,onRemove}:{items:string[];onRemove:(i:string)=>void}){return<div style={{display:'flex',flexWrap:'wrap',marginBottom:'8px'}}>{items.map(item=><span key={item} style={tag}>{item}<button onClick={()=>onRemove(item)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:'14px',padding:0,lineHeight:1,marginLeft:'4px'}}>×</button></span>)}</div>}
   function TicketRow({t,onClick}:{t:Ticket;onClick:()=>void}){return<tr onClick={onClick} style={{cursor:'pointer',borderBottom:`1px solid ${border}`}} onMouseEnter={e=>e.currentTarget.style.background=hover} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><td style={{padding:'10px 12px',fontSize:'12px',fontWeight:500,color:muted,whiteSpace:'nowrap'}}>{t.id}</td><td style={{padding:'10px 12px',fontSize:'13px',maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.asunto}</td><td style={{padding:'10px 12px',fontSize:'12px',color:muted,maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.usuario_email}</td><td style={{padding:'10px 12px'}}><Badge label={STATE_LABELS[t.estado]??t.estado} color={t.estado==='cerrado'?'#6b7280':t.estado==='resuelto'?'#10b981':'#3b82f6'}/></td><td style={{padding:'10px 12px'}}><Badge label={t.prioridad} color={PRI_COLORS[t.prioridad]??'#6b7280'}/></td><td style={{padding:'10px 12px',fontSize:'12px',color:muted}}>{t.tecnico_asignado?.split('@')[0]||'—'}</td><td style={{padding:'10px 12px',fontSize:'11px',color:muted,whiteSpace:'nowrap'}}>{fmtDate(t.fecha_creacion)}</td></tr>}
 
-  const NAV=[{key:'dashboard',label:'Dashboard',icon:'◻'},{key:'kanban',label:'Kanban',icon:'⊞'},{key:'tickets',label:'Tickets',icon:'☰'},{key:'users',label:'Usuarios',icon:'◎'},{key:'kb',label:'KB',icon:'◈'},{key:'config',label:'Config',icon:'⚙'}]
+  // Permisos: ADMIN o HELPDESK (rol base o extra) ve todo; USUARIO solo ve sus tickets y puede crear nuevos
+  const esTecnico = userRol==='ADMIN' || userRol==='HELPDESK' || userRolesExtra.includes('ADMIN') || userRolesExtra.includes('HELPDESK')
+  const esAdminHd = userRol==='ADMIN' || userRolesExtra.includes('ADMIN')
+  const NAV = esTecnico
+    ? [
+        {key:'dashboard',label:'Dashboard',icon:'◻'},
+        {key:'kanban',label:'Kanban',icon:'⊞'},
+        {key:'tickets',label:'Tickets',icon:'☰'},
+        ...(esAdminHd ? [{key:'users',label:'Usuarios',icon:'◎'},{key:'kb',label:'KB',icon:'◈'},{key:'config',label:'Config',icon:'⚙'}] : []),
+      ]
+    : [
+        {key:'dashboard',label:'Mis tickets',icon:'◻'},
+        {key:'tickets',label:'Crear ticket',icon:'+'},
+      ]
   const helpdesk_users=users.filter(u=>['HELPDESK','ADMIN'].includes(u.rol))
   const maxArea=Math.max(...statsByArea.map(s=>s.count),1)
 
@@ -387,8 +411,8 @@ export default function HelpdeskPage(){
           </div>
         </div>}
 
-        {/* Mi estado */}
-        <div style={{padding:'12px 16px',borderTop:`1px solid ${border}`}}>
+        {/* Mi estado (solo técnicos / admin) */}
+        {esTecnico && <div style={{padding:'12px 16px',borderTop:`1px solid ${border}`}}>
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
             <div style={{width:'10px',height:'10px',borderRadius:'50%',background:getStatusInfo(agentStatus).color,flexShrink:0,boxShadow:`0 0 0 3px ${getStatusInfo(agentStatus).color}33`}}/>
             <select value={agentStatus} onChange={e=>setAgentStatus(e.target.value)} style={{...inp,flex:1,fontSize:'12px',padding:'6px 8px'}}>
@@ -406,7 +430,11 @@ export default function HelpdeskPage(){
             <div style={{fontSize:'11px',color:muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'140px'}}>{userEmail}</div>
             <button onClick={toggleTheme} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px',opacity:0.6}}>{d?'☀️':'🌙'}</button>
           </div>
-        </div>
+        </div>}
+        {!esTecnico && <div style={{padding:'12px 16px',borderTop:`1px solid ${border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:'11px',color:muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'140px'}}>{userEmail}</div>
+          <button onClick={toggleTheme} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px',opacity:0.6}}>{d?'☀️':'🌙'}</button>
+        </div>}
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'28px'}}>

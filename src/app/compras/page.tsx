@@ -145,7 +145,7 @@ export default function ComprasPage() {
       </div>
 
       <div style={{ maxWidth:1280, margin:'0 auto', padding:'24px' }}>
-        {tab === 'nueva' && <NuevaOC user={user} token={token} brand={brand} catalogos={catalogos} proveedores={proveedores} onCreated={() => { reloadOrdenes(); setTab('mis') }}/>}
+        {tab === 'nueva' && <NuevaOC user={user} token={token} brand={brand} catalogos={catalogos} proveedores={proveedores} puedeCompras={puedeCompras} onCreated={() => { reloadOrdenes(); setTab('mis') }}/>}
         {(tab === 'mis' || tab === 'pendientes' || tab === 'gestion') && (
           <ListaOC
             ordenes={ordenesFiltradas} brand={brand}
@@ -274,7 +274,10 @@ function ListaOC({ ordenes, brand, q, setQ, filtroEstatus, setFiltroEstatus, fil
 }
 
 // ─── Nueva OC ─────────────────────────────────────────────────
-function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any) {
+function NuevaOC({ user, token, brand, catalogos, proveedores, puedeCompras, onCreated }: any) {
+  const [showProveedor, setShowProveedor] = useState(false)
+  // Solo COMPRAS/APROBADOR/ADMIN ve montos. Para usuario solicitante normal, OC es solo descripción de necesidad.
+  const verMontos = !!puedeCompras
   const empresas    = catalogos.compras_empresas || []
   const tipos       = catalogos.compras_tipos || []
   const categorias  = catalogos.compras_categorias || []
@@ -413,8 +416,8 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
                 <Th>Nombre del material *</Th>
                 <Th>Descripción / Especificación</Th>
                 <Th>Marca/Modelo</Th>
-                <Th style={{ width:110 }}>P. Unit.</Th>
-                <Th style={{ width:110 }}>Importe</Th>
+                {verMontos && <Th style={{ width:110 }}>P. Unit.</Th>}
+                {verMontos && <Th style={{ width:110 }}>Importe</Th>}
                 <Th style={{ width:36 }}></Th>
               </tr>
             </thead>
@@ -437,44 +440,63 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
                   <Td><input value={it.nombre} onChange={e=>updItem(i,{ nombre: e.target.value })} style={{ ...input, padding:'6px 8px' }} placeholder="Producto/servicio"/></Td>
                   <Td><input value={it.descripcion} onChange={e=>updItem(i,{ descripcion: e.target.value })} style={{ ...input, padding:'6px 8px' }}/></Td>
                   <Td><input value={it.marca_modelo} onChange={e=>updItem(i,{ marca_modelo: e.target.value })} style={{ ...input, padding:'6px 8px' }}/></Td>
-                  <Td><input type="number" min="0" step="0.01" value={it.precio_unitario} onChange={e=>updItem(i,{ precio_unitario: Number(e.target.value) || 0 })} style={{ ...input, padding:'6px 8px', textAlign:'right' }}/></Td>
-                  <Td style={{ textAlign:'right', fontWeight:600 }}>${(it.cantidad * it.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits:2 })}</Td>
+                  {verMontos && <Td><input type="number" min="0" step="0.01" value={it.precio_unitario} onChange={e=>updItem(i,{ precio_unitario: Number(e.target.value) || 0 })} style={{ ...input, padding:'6px 8px', textAlign:'right' }}/></Td>}
+                  {verMontos && <Td style={{ textAlign:'right', fontWeight:600 }}>${(it.cantidad * it.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits:2 })}</Td>}
                   <Td><button type="button" onClick={()=>rmItem(i)} style={{ ...qtyBtn, background:'#fee2e2', color:'#dc2626' }}>×</button></Td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <button type="button" onClick={addItem} style={{ background:'var(--ul-bg)', border:'1px dashed #c8c5b6', borderRadius:8, padding:'10px 16px', fontSize:13, cursor:'pointer', width:'100%' }}>+ Agregar item</button>
+        <button type="button" onClick={addItem} style={{ background:'var(--ul-bg)', border:'1px dashed var(--ul-border)', borderRadius:8, padding:'10px 16px', fontSize:13, cursor:'pointer', width:'100%', color:'var(--ul-text-muted)' }}>+ Agregar item</button>
+        {!verMontos && (
+          <div style={{ marginTop:10, padding:'10px 14px', background:'var(--ul-surface-2)', border:'1px solid var(--ul-border)', borderRadius:8, fontSize:12, color:'var(--ul-text-muted)' }}>
+            ℹ Esta orden es una <strong style={{ color:'var(--ul-text)' }}>solicitud de compra</strong>. El área de Compras se encarga de cotizar precios y seleccionar proveedor. No es necesario que captures montos.
+          </div>
+        )}
       </Section>
 
-      <Section title="Proveedor sugerido (opcional)">
-        <Grid cols={3}>
-          <Field label="Buscar proveedor">
-            <select value={proveedorId} onChange={e=>selectProveedor(e.target.value)} style={input}>
-              <option value="">— Sin proveedor / capturar manual —</option>
-              {proveedores.map((p: any) => <option key={p.id} value={p.id}>{p.razon_social} ({p.rfc})</option>)}
-            </select>
-          </Field>
-          <Field label="RFC"><input value={proveedorRfc} onChange={e=>setProveedorRfc(e.target.value.toUpperCase())} style={input}/></Field>
-          <Field label="Razón social"><input value={proveedorRazon} onChange={e=>setProveedorRazon(e.target.value)} style={input}/></Field>
-        </Grid>
-      </Section>
+      {/* Proveedor sugerido — colapsable, oculto por defecto */}
+      <div style={{ marginBottom:16 }}>
+        <button type="button" onClick={() => setShowProveedor(s => !s)} style={{
+          width:'100%', padding:'10px 14px', background:'var(--ul-surface-2)', border:'1px solid var(--ul-border)',
+          borderRadius:8, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+          color:'var(--ul-text-muted)', fontSize:12, fontWeight:600,
+        }}>
+          <span>{showProveedor ? '▼' : '▶'} ¿Tienes un proveedor sugerido? <span style={{ opacity:.6, fontWeight:400, marginLeft:6 }}>(opcional — Compras puede definirlo)</span></span>
+        </button>
+        {showProveedor && (
+          <div style={{ marginTop:10, padding:14, background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:8 }}>
+            <Grid cols={3}>
+              <Field label="Buscar proveedor">
+                <select value={proveedorId} onChange={e=>selectProveedor(e.target.value)} style={input}>
+                  <option value="">— Capturar manual —</option>
+                  {proveedores.map((p: any) => <option key={p.id} value={p.id}>{p.razon_social} ({p.rfc})</option>)}
+                </select>
+              </Field>
+              <Field label="RFC"><input value={proveedorRfc} onChange={e=>setProveedorRfc(e.target.value.toUpperCase())} style={input}/></Field>
+              <Field label="Razón social"><input value={proveedorRazon} onChange={e=>setProveedorRazon(e.target.value)} style={input}/></Field>
+            </Grid>
+          </div>
+        )}
+      </div>
 
       <Section title="Observaciones y totales">
         <Field label="Observaciones">
           <textarea value={observaciones} onChange={e=>setObservaciones(e.target.value)} rows={3} style={{ ...input, resize:'vertical' }}/>
         </Field>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
-          <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
-            <input type="checkbox" checked={aplicaIva} onChange={e=>setAplicaIva(e.target.checked)}/> Aplica IVA (16%)
-          </label>
-          <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:12, color:'var(--ul-text-subtle)' }}>Subtotal: ${subtotal.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
-            <div style={{ fontSize:12, color:'var(--ul-text-subtle)' }}>IVA: ${iva.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
-            <div style={{ fontSize:18, fontWeight:700, color: brand.color }}>Total: ${total.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+        {verMontos && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
+            <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:6, color:'var(--ul-text)' }}>
+              <input type="checkbox" checked={aplicaIva} onChange={e=>setAplicaIva(e.target.checked)}/> Aplica IVA (16%)
+            </label>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:12, color:'var(--ul-text-subtle)' }}>Subtotal: ${subtotal.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+              <div style={{ fontSize:12, color:'var(--ul-text-subtle)' }}>IVA: ${iva.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+              <div style={{ fontSize:18, fontWeight:800, color:'var(--ul-accent)' }}>Total: ${total.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+            </div>
           </div>
-        </div>
+        )}
       </Section>
 
       <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
