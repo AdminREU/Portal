@@ -93,12 +93,12 @@ export default function PortalPage() {
       key: 'compras', badge: 'DESTACADO', title: brand.tituloCompras, subtitle: brand.subtituloCompras,
       href: '/compras', accent: '#ffd400', icon: brand.iconoCompras, enabled: true,
     })
-    slides.push({
+    if (flags.SIMULADOR_HABILITADO !== false) slides.push({
       key: 'simulador',
-      badge: flags.SIMULADOR_HABILITADO ? 'NUEVO' : 'PRÓXIMAMENTE',
+      badge: flags.SIMULADOR_HABILITADO === false ? 'PRÓXIMAMENTE' : 'NUEVO',
       title: brand.tituloSimulador, subtitle: brand.subtituloSimulador,
-      href: '#', accent: '#a78bfa', icon: brand.iconoSimulador,
-      enabled: !!flags.SIMULADOR_HABILITADO,
+      href: '/simulador', accent: '#a78bfa', icon: brand.iconoSimulador,
+      enabled: flags.SIMULADOR_HABILITADO !== false,
     })
     return slides
   }, [flags, brand])
@@ -137,7 +137,7 @@ export default function PortalPage() {
         { key: 'inicio', label: 'Inicio', icon: '◆' },
         ...(flags.HELPDESK_HABILITADO !== false ? [{ key: 'helpdesk', label: brand.tituloHelpdesk, icon: brand.iconoHelpdesk, href: '/helpdesk', badge: ticketsAbiertos || undefined }] : []),
         ...(flags.COMPRAS_HABILITADO !== false ? [{ key: 'compras', label: brand.tituloCompras, icon: brand.iconoCompras, href: '/compras', badge: ordenesPendientes || undefined }] : []),
-        { key: 'simulador', label: brand.tituloSimulador, icon: brand.iconoSimulador, onClick: () => alert(flags.SIMULADOR_HABILITADO ? 'Cargando simulador...' : 'Próximamente') },
+        ...(flags.SIMULADOR_HABILITADO !== false ? [{ key: 'simulador', label: brand.tituloSimulador, icon: brand.iconoSimulador, href: '/simulador' }] : []),
       ],
     },
   ]

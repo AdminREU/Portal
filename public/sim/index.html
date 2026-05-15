@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Ultralam — Carga 3D</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===== THEME TOKENS ===== */
+:root,[data-theme="light"]{
+  --bg:#FFFFFF;--sf:#F7F7F5;--sf2:#EDEDEB;--bd:#E3E2DE;--bd2:#D3D2CE;
+  --tx:#37352F;--tx2:#787774;--tx3:#B4B4B0;
+  --ac:#2383E2;--ac2:#D3E5F5;--g:#0F7B0F;--g2:#D4EDDA;--w:#D9730D;--w2:#FDEBD0;--r:#E03E3E;--r2:#FADBD8;
+  --pp:#6940A5;--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --vp-bg:#F0F0EE;--grid-c:#D8D8D4;--cont-line:#2383E2;
+}
+[data-theme="dark"]{
+  --bg:#191919;--sf:#202020;--sf2:#2A2A2A;--bd:#383838;--bd2:#484848;
+  --tx:#E8E8E3;--tx2:#9B9A97;--tx3:#5A5A58;
+  --ac:#529CCA;--ac2:#1E3A4F;--g:#4DAB9A;--g2:#1A3330;--w:#CB7B2C;--w2:#3D2E1A;--r:#EB5757;--r2:#3D1F1F;
+  --pp:#9A6DD7;--shadow:0 1px 3px rgba(0,0,0,.3);
+  --vp-bg:#141414;--grid-c:#2A2A2A;--cont-line:#529CCA;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;font-size:13px;transition:background .25s,color .25s}
+::selection{background:var(--ac2);color:var(--ac)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--tx3)}
+
+/* ===== AUTH SCREEN ===== */
+#authScreen{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;}
+.auth-card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:36px;width:380px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:16px}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.auth-title{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.auth-subtitle{font-size:11px;color:var(--tx3)}
+.auth-field{display:flex;flex-direction:column;gap:5px}
+.auth-field label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3)}
+.auth-field input{background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;padding:10px 14px;outline:none;transition:border-color .15s;width:100%}
+.auth-field input:focus{border-color:var(--ac)}
+.auth-msg{font-size:11px;min-height:16px;padding:2px 0}
+.auth-msg.err{color:var(--r)}.auth-msg.ok{color:var(--g)}.auth-msg.info{color:var(--ac)}
+.auth-otp-input{font-family:'JetBrains Mono',monospace;font-size:22px;letter-spacing:8px;text-align:center}
+
+/* ===== ADMIN OVERLAY ===== */
+#adminPanel{position:fixed;inset:0;background:var(--bg);z-index:8000;display:none;flex-direction:column}
+.admin-hdr{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+.admin-hdr .logo{font-size:14px;font-weight:700;letter-spacing:-.02em}
+.admin-hdr .logo b{color:var(--ac)}
+.admin-badge{background:var(--pp);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
+.admin-hdr-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.admin-body{display:grid;grid-template-columns:220px 1fr;flex:1;min-height:0;overflow:hidden}
+.admin-nav{background:var(--sf);border-right:1px solid var(--bd);padding:16px 10px;display:flex;flex-direction:column;gap:3px}
+.admin-nav-item{padding:8px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--tx2);transition:all .12s;display:flex;align-items:center;gap:8px}
+.admin-nav-item:hover{background:var(--sf2);color:var(--tx)}
+.admin-nav-item.active{background:var(--ac2);color:var(--ac)}
+.admin-content{padding:24px;overflow-y:auto}
+.admin-section{display:none}
+.admin-section.active{display:block}
+.admin-section h2{font-size:16px;font-weight:700;margin-bottom:4px}
+.admin-section p.desc{font-size:12px;color:var(--tx2);margin-bottom:20px}
+.admin-table{width:100%;border-collapse:collapse;font-size:12px}
+.admin-table th{background:var(--sf2);padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);border-bottom:1px solid var(--bd)}
+.admin-table td{padding:9px 10px;border-bottom:1px solid var(--bd);vertical-align:middle}
+.admin-table tr:hover td{background:var(--sf)}
+.admin-toolbar{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.admin-import-zone{border:1px dashed var(--bd2);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all .15s;font-size:11px;color:var(--tx3);margin-bottom:12px}
+.admin-import-zone:hover,.admin-import-zone.drag{border-color:var(--ac);background:var(--ac2);color:var(--ac)}
+.admin-import-zone input{display:none}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.tag-lam{background:var(--ac2);color:var(--ac)}
+.tag-caj{background:var(--w2);color:var(--w)}
+.tag-adm{background:#2D1D6B;color:#9A6DD7}
+.config-section{display:flex;flex-direction:column;gap:16px;max-width:480px}
+.config-row{display:flex;flex-direction:column;gap:4px}
+.config-row label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3)}
+.config-row input{background:var(--sf);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;transition:border-color .15s}
+.config-row input:focus{border-color:var(--ac)}
+.logo-preview{width:44px;height:44px;object-fit:contain;border-radius:7px;border:1px solid var(--bd);background:var(--sf2)}
+.logo-upload-area{display:flex;align-items:center;gap:10px}
+.log-item{padding:6px 10px;background:var(--sf);border:1px solid var(--bd);border-radius:5px;margin-bottom:4px;font-size:10px;display:flex;justify-content:space-between;align-items:center}
+.log-item .log-time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3)}
+.log-item .log-user{font-weight:600}
+.log-item .log-action{color:var(--tx2)}
+
+/* ===== SETTINGS MODAL ===== */
+#settingsModal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:7000;display:none;align-items:center;justify-content:center}
+#settingsModal.open{display:flex}
+.modal-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;width:420px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.modal-card h3{font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--tx3);font-size:16px;padding:0}
+.modal-close:hover{color:var(--r)}
+.modal-field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.modal-field label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3)}
+.modal-field input{background:var(--bg);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;padding:8px 10px;outline:none;transition:border-color .15s}
+.modal-field input:focus{border-color:var(--ac)}
+
+/* ===== APP LAYOUT ===== */
+.app{display:grid;grid-template-columns:310px 1fr 270px;grid-template-rows:48px 1fr;height:100vh}
+.hdr{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--sf);border-bottom:1px solid var(--bd);gap:8px}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.hdr-logo-img{width:26px;height:26px;object-fit:contain;border-radius:4px}
+.logo{font-size:14px;font-weight:700;letter-spacing:-.02em}.logo b{color:var(--ac)}
+.version{font-size:10px;color:var(--tx3);font-weight:500;background:var(--sf2);padding:2px 6px;border-radius:4px}
+.hdr-metrics{display:flex;gap:14px;align-items:center}
+.hm{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2)}
+.hm b{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx);font-weight:600}
+.hm .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.theme-toggle{width:32px;height:18px;border-radius:9px;background:var(--bd2);cursor:pointer;position:relative;border:none;transition:background .2s;flex-shrink:0}
+.theme-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--tx);transition:transform .2s}
+[data-theme="dark"] .theme-toggle::after{transform:translateX(14px)}
+.hmAlert{display:none;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;background:var(--r2);color:var(--r)}
+.user-chip{display:flex;align-items:center;gap:6px;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:3px 10px 3px 6px;font-size:11px;font-weight:600;cursor:pointer}
+.user-chip .uc-avatar{width:20px;height:20px;border-radius:50%;background:var(--ac);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-chip:hover{border-color:var(--ac)}
+
+/* ===== PANELS ===== */
+.sL,.sR{background:var(--sf);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.sL{border-right:1px solid var(--bd)}.sR{border-left:1px solid var(--bd)}
+.vp{position:relative;overflow:hidden;background:var(--vp-bg)}
+.section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:6px}
+.card{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;box-shadow:var(--shadow)}
+.note{font-size:9px;color:var(--tx3);padding:4px 8px;background:var(--sf2);border-radius:4px;line-height:1.5;margin-top:4px}
+
+/* ===== INPUTS ===== */
+.row{display:grid;gap:6px;margin-bottom:6px}.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:2px}
+.field label{font-size:9px;color:var(--tx3);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.field input,.field select{background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 8px;outline:none;width:100%;transition:border-color .15s}
+.field input:focus,.field select:focus{border-color:var(--ac)}
+
+/* ===== BUTTONS ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:7px 12px;border:none;border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn-primary{background:var(--ac);color:#fff}.btn-primary:hover{filter:brightness(1.1)}
+.btn-success{background:var(--g);color:#fff}.btn-success:hover{filter:brightness(1.1)}
+.btn-warn{background:var(--w);color:#fff}.btn-warn:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--bd);color:var(--tx2)}.btn-ghost:hover{border-color:var(--tx2);color:var(--tx)}
+.btn-danger{background:transparent;border:1px solid var(--r);color:var(--r);padding:2px 6px;font-size:9px}.btn-danger:hover{background:var(--r);color:#fff}
+.btn-full{width:100%}
+
+/* ===== PRESETS ===== */
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.preset{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;cursor:pointer;transition:all .15s}
+.preset:hover{border-color:var(--ac)}.preset.active{border-color:var(--ac);background:var(--ac2)}
+.preset .p-name{font-size:10px;font-weight:600}.preset .p-dims{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--tx2)}.preset .p-cap{font-size:8px;color:var(--tx3)}
+
+/* ===== TABS ===== */
+.tabs{display:flex;gap:2px;margin-bottom:8px;background:var(--sf2);border-radius:6px;padding:2px}
+.tab{flex:1;padding:5px;border:none;border-radius:4px;background:transparent;color:var(--tx3);font-size:10px;font-weight:600;cursor:pointer;text-align:center;transition:all .12s;font-family:'Plus Jakarta Sans',sans-serif}
+.tab:hover{color:var(--tx2)}.tab.active{background:var(--bg);color:var(--ac);box-shadow:var(--shadow)}
+
+/* ===== TYPE TOGGLE ===== */
+.type-toggle{display:flex;gap:4px;margin-bottom:8px}
+.type-btn{flex:1;padding:6px;border:1px solid var(--bd);border-radius:6px;background:var(--sf);color:var(--tx2);font-size:10px;font-weight:600;cursor:pointer;text-align:center;transition:all .12s}
+.type-btn:hover{border-color:var(--ac)}.type-btn.active{border-color:var(--ac);background:var(--ac2);color:var(--ac)}
+
+/* ===== COLORS ===== */
+.color-grid{display:flex;gap:3px;flex-wrap:wrap;margin:4px 0}
+.color-dot{width:16px;height:16px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:all .1s}
+.color-dot:hover{transform:scale(1.1)}.color-dot.active{border-color:var(--tx)}
+
+/* ===== PROGRESS BAR ===== */
+.progress-wrap{background:var(--sf2);border-radius:8px;height:14px;overflow:hidden;border:1px solid var(--bd)}
+.progress-fill{height:100%;border-radius:8px;transition:width .4s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;min-width:30px}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+
+/* ===== PRODUCT ITEM ===== */
+.prod-item{display:flex;align-items:center;gap:8px;padding:7px 8px;background:var(--sf);border:1px solid var(--bd);border-radius:6px;margin-bottom:3px;font-size:11px;cursor:default;transition:border-color .12s}
+.prod-item:hover{border-color:var(--tx3)}
+.prod-color{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.prod-info{flex:1;min-width:0}
+.prod-name{font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-dims{font-size:9px;color:var(--tx2);font-family:'JetBrains Mono',monospace}
+
+/* ===== CATALOG PICKER ===== */
+.cat-item{display:flex;align-items:center;gap:8px;padding:7px 8px;background:var(--sf);border:1px solid var(--bd);border-radius:6px;margin-bottom:3px;font-size:11px;cursor:pointer;transition:all .12s}
+.cat-item:hover{border-color:var(--ac);background:var(--ac2)}
+.cat-item .cat-name{flex:1;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-item .cat-dims{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--tx2)}
+
+/* ===== ALERTS ===== */
+.alert{padding:7px 9px;border-radius:6px;font-size:10px;margin-bottom:3px;display:flex;align-items:flex-start;gap:5px;line-height:1.5}
+.alert-error{background:var(--r2);border:1px solid transparent;color:var(--r)}
+.alert-warn{background:var(--w2);border:1px solid transparent;color:var(--w)}
+.alert-info{background:var(--ac2);border:1px solid transparent;color:var(--ac)}
+.alert-ok{background:var(--g2);border:1px solid transparent;color:var(--g)}
+
+/* ===== VIEWPORT OVERLAYS ===== */
+.vp-top-left{position:absolute;top:6px;left:8px;display:flex;gap:4px;flex-wrap:wrap}
+.vp-top-right{position:absolute;top:6px;right:8px;font-size:9px;color:var(--tx3);background:var(--sf);border:1px solid var(--bd);border-radius:5px;padding:3px 8px;opacity:.8}
+.vp-badge{position:absolute;top:6px;left:50%;transform:translateX(-50%);background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:4px 14px;font-size:10px;font-weight:600;box-shadow:var(--shadow)}
+.vp-bottom{position:absolute;bottom:8px;left:8px;display:flex;gap:6px}
+.stat-chip{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:4px 10px;box-shadow:var(--shadow)}
+.stat-chip .s-label{font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;display:block}
+.stat-chip .s-value{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+
+/* ===== TOOLTIP ===== */
+#tooltip3d{position:absolute;pointer-events:none;background:var(--sf);border:1px solid var(--ac);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--tx);display:none;z-index:100;max-width:220px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+#tooltip3d .t-name{font-weight:700;color:var(--ac);font-size:11px;margin-bottom:2px}
+#tooltip3d .t-data{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx2);line-height:1.5}
+
+/* ===== LAYER CTRL ===== */
+.layer-ctrl{display:flex;align-items:center;gap:6px;padding:4px 0}
+.layer-ctrl input[type=range]{flex:1;accent-color:var(--ac);height:4px}
+.layer-ctrl .lv{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ac);min-width:42px;text-align:right}
+
+/* ===== WEIGHT DIST ===== */
+.wdist{display:flex;gap:2px;height:10px;border-radius:3px;overflow:hidden;margin-top:2px}.wdist div{height:100%;transition:width .3s}
+
+/* ===== SELECTED PIECE ===== */
+.sel-info{background:var(--ac2);border:1px solid transparent;border-radius:6px;padding:7px 9px;font-size:10px;color:var(--ac)}
+
+/* ===== HISTORY ===== */
+.hist-item{display:flex;align-items:center;gap:6px;padding:5px 7px;background:var(--sf);border:1px solid var(--bd);border-radius:5px;margin-bottom:3px;font-size:10px;cursor:pointer;transition:border-color .12s}
+.hist-item:hover{border-color:var(--ac)}
+
+/* ===== PRINT ===== */
+/* ===== MOBILE / RESPONSIVE ===== */
+@media (max-width:900px){
+  body{font-size:12px}
+  .app{display:flex;flex-direction:column;height:auto;min-height:100vh}
+  .hdr{flex-wrap:wrap;height:auto;padding:6px 8px;gap:4px;position:sticky;top:0;z-index:50}
+  .hdr-left{flex:1;min-width:0}
+  .hdr-metrics{order:3;flex-basis:100%;font-size:9px;justify-content:space-between;gap:4px;padding:4px 0;border-top:1px solid var(--bd)}
+  .hm{font-size:9px;gap:3px}
+  .hm b{font-size:10px}
+  .hdr-right{display:flex;align-items:center;gap:4px}
+  .hdr-right .btn{padding:3px 6px;font-size:9px}
+  .user-chip{padding:2px 6px 2px 4px;font-size:10px}
+  .user-chip .uc-avatar{width:18px;height:18px;font-size:8px}
+  .vp{height:42vh;min-height:280px;order:1;flex-shrink:0}
+  .sL{order:2;border:none;border-bottom:1px solid var(--bd);padding:10px;gap:10px;max-height:none}
+  .sR{order:3;border:none;border-top:1px solid var(--bd);padding:10px;gap:10px;max-height:none}
+  .presets{grid-template-columns:1fr 1fr 1fr;gap:3px}
+  .preset .p-name{font-size:9px}
+  .preset .p-dims{font-size:8px}
+  .preset .p-cap{font-size:7px}
+  .card{padding:8px}
+  .field input,.field select{font-size:10px;padding:5px 6px}
+  .row.c4{grid-template-columns:1fr 1fr}
+  .vp-bottom{flex-wrap:wrap;gap:3px}
+  .stat-chip{padding:3px 7px}
+  .stat-chip .s-label{font-size:7px}
+  .stat-chip .s-value{font-size:10px}
+  .vp-top-left .btn,.vp-top-right{font-size:8px;padding:2px 5px}
+  .auth-card{width:92%;max-width:380px;padding:24px 20px}
+  #adminPanel .admin-body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  #adminPanel .admin-nav{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--bd);padding:8px;gap:6px}
+  #adminPanel .admin-nav-item{white-space:nowrap;flex-shrink:0;font-size:11px}
+  #adminPanel .admin-content{padding:12px;overflow-x:auto}
+  #adminPanel .admin-table{font-size:10px;min-width:480px}
+  #adminPanel .admin-toolbar{flex-direction:column;align-items:stretch}
+  #adminPanel .admin-toolbar .btn{width:100%;justify-content:center}
+  #adminPanel .admin-hdr{flex-wrap:wrap;height:auto;padding:8px 10px;gap:6px}
+  #adminPanel .admin-hdr-actions{margin-left:auto;gap:4px}
+  .modal-card{width:92%;max-width:400px;padding:18px}
+  #pList{max-height:30vh}
+  #catalogList{max-height:25vh}
+}
+@media (max-width:480px){
+  .vp{height:38vh;min-height:240px}
+  .presets{grid-template-columns:1fr 1fr}
+}
+@media print{
+  body{overflow:visible!important;height:auto!important;background:#fff!important;color:#000!important}
+  .app{display:block!important;height:auto!important}.sL,.sR,.hdr{display:none!important}
+  .vp{width:100%!important;height:70vh!important;background:#fff!important}
+  .vp-top-left,.vp-top-right,.vp-badge,#tooltip3d{display:none!important}
+  .print-section{display:block!important;padding:15px;page-break-before:always}
+  @page{size:landscape;margin:8mm}
+}
+.print-section{display:none}
+.admin-product-tabs{display:flex;gap:2px;margin-bottom:10px;background:var(--sf2);border-radius:6px;padding:2px}
+.admin-product-tabs .apt{flex:1;padding:5px;border:none;border-radius:4px;background:transparent;color:var(--tx3);font-size:10px;font-weight:600;cursor:pointer;text-align:center;font-family:'Plus Jakarta Sans',sans-serif}
+.admin-product-tabs .apt.active{background:var(--bg);color:var(--ac);box-shadow:var(--shadow)}
+.open-measure-form{background:var(--g2);border:1px solid var(--g);border-radius:8px;padding:10px;margin-top:6px}
+.open-measure-form .om-title{font-size:10px;font-weight:700;color:var(--g);margin-bottom:8px}
+</style>
+</head>
+<body>
+
+
+
+<!-- ===== AUTH SCREEN ===== -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img id="authLogoImg" src="" alt="" style="width:32px;height:32px;object-fit:contain;border-radius:6px;display:none">
+      <div class="auth-title"><span id="authLogoName"><b>ULTRALAM</b></span></div>
+    </div>
+    <!-- STEP 1: email -->
+    <div id="authStep1">
+      <div class="auth-subtitle">Ingresa tu correo para recibir un código de acceso</div>
+      <div class="auth-field" style="margin-top:8px">
+        <label>Correo electrónico</label>
+        <input type="email" id="authEmail" placeholder="tu@correo.com" onkeydown="if(event.key==='Enter')sendOTP()">
+      </div>
+      <div class="auth-msg" id="authMsg"></div>
+      <button class="btn btn-primary btn-full" id="sendOtpBtn" onclick="sendOTP()">Enviar código</button>
+    </div>
+    <!-- STEP 2: OTP -->
+    <div id="authStep2" style="display:none">
+      <div class="auth-subtitle" id="authStep2Desc">Ingresa el código de 6 dígitos enviado a tu correo</div>
+      <div class="auth-field" style="margin-top:8px">
+        <label>Código de verificación</label>
+        <input type="text" id="authOTP" class="auth-otp-input" maxlength="10" placeholder="código" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')verifyOTP()">
+      </div>
+      <div class="auth-msg" id="authMsg2"></div>
+      <button class="btn btn-primary btn-full" id="verifyOtpBtn" onclick="verifyOTP()">Verificar e ingresar</button>
+      <button class="btn btn-ghost btn-full" style="margin-top:6px;font-size:10px" onclick="backToEmail()">&#8592; Cambiar correo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADMIN PANEL ===== -->
+<div id="adminPanel">
+  <div class="admin-hdr">
+    <img id="adminLogoImg" src="" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:4px;display:none">
+    <div class="logo" id="adminLogoName"><b>ULTRALAM</b></div>
+    <span style="font-size:11px;color:var(--tx3)">Carga 3D</span>
+    <span class="admin-badge">ADMINISTRADOR</span>
+    <div class="admin-hdr-actions">
+      <button class="btn btn-ghost" onclick="openSimFromAdmin()" style="font-size:10px">&#128296; Abrir Simulaci&#243;n</button>
+      <button class="theme-toggle" onclick="toggleTheme()"></button>
+      <div class="user-chip" onclick="signOut()"><div class="uc-avatar" id="adminAvatar">A</div><span id="adminUserEmail">admin</span></div>
+    </div>
+  </div>
+  <div class="admin-body">
+    <nav class="admin-nav">
+      <div class="admin-nav-item active" onclick="adminNav('vehicles')" id="nav-vehicles">&#128666; Veh&#237;culos</div>
+      <div class="admin-nav-item" onclick="adminNav('products')" id="nav-products">&#128230; Cat&#225;logo</div>
+      <div class="admin-nav-item" onclick="adminNav('users')" id="nav-users">&#128101; Usuarios</div>
+      <div class="admin-nav-item" onclick="adminNav('log')" id="nav-log">&#128196; Registro</div>
+      <div class="admin-nav-item" onclick="adminNav('config')" id="nav-config">&#9881; Configuraci&#243;n</div>
+    </nav>
+    <div class="admin-content">
+
+      <!-- VEHICLES SECTION -->
+      <div class="admin-section active" id="sec-vehicles">
+        <h2>Veh&#237;culos / Contenedores</h2>
+        <p class="desc">Gestiona los veh&#237;culos predefinidos que aparecen como botones en el simulador. Puedes editar medidas, peso m&#225;ximo y agregar nuevos tipos.</p>
+        <div class="admin-toolbar">
+          <button class="btn btn-primary" onclick="addVehicleManual()">+ Nuevo veh&#237;culo</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('vehXlsxInput').click()">&#8593; Importar Excel/CSV</button>
+          <input type="file" id="vehXlsxInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="importVehiclesFile(event)">
+          <button class="btn btn-ghost" onclick="downloadVehiclesTemplate()">&#8595; Plantilla</button>
+          <button class="btn btn-ghost" onclick="resetVehicles()" style="font-size:10px">&#8635; Restaurar predeterminados</button>
+          <span style="font-size:10px;color:var(--tx3);margin-left:auto" id="vehCount">0 veh&#237;culos</span>
+        </div>
+        <table class="admin-table" id="vehTable">
+          <thead><tr><th>#</th><th>Nombre</th><th>Largo (cm)</th><th>Ancho (cm)</th><th>Alto (cm)</th><th>Peso m&#225;x (kg)</th><th>Acciones</th></tr></thead>
+          <tbody id="vehTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- USERS SECTION -->
+      <div class="admin-section" id="sec-users">
+        <h2>Gesti&#243;n de Usuarios</h2>
+        <p class="desc">Importa o gestiona los usuarios que pueden acceder a la herramienta de simulaci&#243;n.</p>
+        <div class="admin-toolbar">
+          <button class="btn btn-primary" onclick="addUserManual()">+ Agregar usuario</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('usersCSVInput').click()">&#8593; Importar CSV</button>
+          <input type="file" id="usersCSVInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="importUsersCSV(event)">
+          <button class="btn btn-ghost" onclick="downloadUsersTemplate()">&#8595; Plantilla CSV</button>
+          <span style="font-size:10px;color:var(--tx3);margin-left:auto" id="userCount">0 usuarios</span>
+        </div>
+        <div class="admin-import-zone" id="usersDropZone" onclick="document.getElementById('usersCSVInput').click()">
+          <input type="file" id="usersCSVInput2" accept=".csv" style="display:none" onchange="importUsersCSV(event)">
+          <div style="font-size:20px;margin-bottom:4px">&#128101;</div>
+          Arrastra CSV de usuarios o haz clic<br>
+          <span style="font-size:9px">Columnas: nombre, correo (opcional), area (opcional)</span>
+        </div>
+        <table class="admin-table" id="usersTable">
+          <thead><tr><th>#</th><th>Nombre</th><th>Correo</th><th>&#193;rea</th><th>Acciones</th></tr></thead>
+          <tbody id="usersTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- PRODUCTS SECTION -->
+      <div class="admin-section" id="sec-products">
+        <h2>Cat&#225;logo de Productos</h2>
+        <p class="desc">Carga el cat&#225;logo que ver&#225;n los usuarios en la simulaci&#243;n.</p>
+        <div class="admin-toolbar">
+          <button class="btn btn-primary" onclick="addProductManual()">+ Agregar producto</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('prodCSVInput').click()">&#8593; Importar CSV</button>
+          <input type="file" id="prodCSVInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="importProductsCSV(event)">
+          <button class="btn btn-ghost" onclick="downloadProductsTemplate()">&#8595; Plantilla CSV</button>
+          <button class="btn btn-danger" onclick="clearAllProducts()" style="padding:6px 10px;font-size:10px">Limpiar todo</button>
+          <span style="font-size:10px;color:var(--tx3);margin-left:auto" id="prodCount">0 productos</span>
+        </div>
+        <div class="admin-import-zone" id="prodDropZone" onclick="document.getElementById('prodCSVInput').click()">
+          <div style="font-size:20px;margin-bottom:4px">&#128230;</div>
+          Arrastra CSV de productos o haz clic<br>
+          <span style="font-size:9px">Columnas: nombre, largo, ancho, alto, peso_ud, tipo (lamina|caja), color(hex, opcional)</span>
+        </div>
+        <table class="admin-table" id="prodTable">
+          <thead><tr><th>&#9632;</th><th>Nombre</th><th>Tipo</th><th>Medidas (cm)</th><th>Peso/ud</th><th>Acciones</th></tr></thead>
+          <tbody id="prodTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- LOG SECTION -->
+      <div class="admin-section" id="sec-log">
+        <h2>Registro de Acceso</h2>
+        <p class="desc">Historial de inicios de sesi&#243;n y simulaciones guardadas.</p>
+        <div class="admin-toolbar">
+          <button class="btn btn-ghost" onclick="renderLog()">&#8635; Actualizar</button>
+          <button class="btn btn-danger" style="padding:6px 10px;font-size:10px" onclick="clearLog()">Limpiar registro</button>
+        </div>
+        <div id="logContainer"></div>
+      </div>
+
+      <!-- CONFIG SECTION -->
+      <div class="admin-section" id="sec-config">
+        <h2>Configuraci&#243;n del Sistema</h2>
+        <p class="desc">Personaliza el nombre y logo de la plataforma.</p>
+        <div class="config-section">
+          <div class="config-row">
+            <label>Nombre del sistema</label>
+            <input type="text" id="cfgSysName" placeholder="Ultralam — Carga 3D" value="Ultralam — Carga 3D">
+          </div>
+          <div class="config-row">
+            <label>Logo (URL o base64)</label>
+            <div class="logo-upload-area">
+              <img class="logo-preview" id="cfgLogoPreview" src="" alt="Logo" onerror="this.src=''">
+              <div style="flex:1">
+                <input type="text" id="cfgLogoUrl" placeholder="https://... o base64" oninput="previewLogo()">
+                <div style="margin-top:6px"><button class="btn btn-ghost" style="font-size:10px" onclick="document.getElementById('logoFileInput').click()">&#128247; Subir imagen</button></div>
+                <input type="file" id="logoFileInput" accept="image/*" style="display:none" onchange="loadLogoFile(event)">
+              </div>
+            </div>
+          </div>
+          <div class="config-row">
+            <label>Margen lateral (cm) — espacio a cada lado</label>
+            <input type="number" id="cfgMarginLado" min="0" step="1" value="15">
+          </div>
+          <div class="config-row">
+            <label>Margen superior/alto (cm) — espacio al techo</label>
+            <input type="number" id="cfgMarginAlto" min="0" step="1" value="30">
+          </div>
+          <div class="config-row">
+            <label>Margen puerta (cm) — espacio cerca de las puertas</label>
+            <input type="number" id="cfgMarginPuerta" min="0" step="1" value="30">
+          </div>
+          <div class="config-row">
+            <label>Dirección de carga</label>
+            <select id="cfgLoadDir" style="background:var(--sf);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-size:13px;padding:9px 12px">
+              <option value="back">Apilar al fondo (lejos de puertas)</option>
+              <option value="front">Apilar cerca de las puertas</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="saveSystemConfig()" style="max-width:200px">Guardar configuraci&#243;n</button>
+          <div id="configSavedMsg" style="font-size:11px;color:var(--g);display:none">&#10003; Guardado correctamente</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS MODAL ===== -->
+<div id="settingsModal">
+  <div class="modal-card">
+    <h3>Configuraci&#243;n r&#225;pida <button class="modal-close" onclick="closeSettings()">&#10005;</button></h3>
+    <div class="modal-field"><label>Mi nombre de usuario</label><input type="text" id="settingUserName" placeholder="Tu nombre"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeSettings()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div class="app" id="mainApp" style="display:none">
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <img id="appLogoImg" src="" alt="" style="display:none" class="hdr-logo-img" onerror="this.style.display='none'">
+    <div class="logo" id="appLogoName"><b>ULTRALAM</b></div>
+    <span class="version" id="appVersion">v8</span>
+  </div>
+  <div class="hdr-metrics">
+    <div class="hm"><div class="dot" style="background:var(--ac)"></div>Piezas: <b id="hmPz">0/0</b></div>
+    <div class="hm"><div class="dot" style="background:var(--w)"></div>Peso: <b id="hmKg">0 / 0 kg</b></div>
+    <div class="hm"><div class="dot" style="background:var(--g)"></div>Vol: <b id="hmVol">0 / 0 m&#179;</b></div>
+    <span class="hmAlert" id="hmAlert"></span>
+  </div>
+  <div class="hdr-right">
+    <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="Cambiar tema"></button>
+    <div class="user-chip" id="userChip" onclick="openSettings()">
+      <div class="uc-avatar" id="appAvatar">U</div>
+      <span id="appUserLabel">Usuario</span>
+    </div>
+    <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px" onclick="syncAllFromServer()" title="Actualizar desde servidor">&#8635;</button>
+    <button class="btn btn-ghost" id="adminBtnInApp" style="font-size:9px;padding:3px 8px;display:none" onclick="showAdminPanel()">&#128272; Admin</button>
+    <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px" onclick="signOut()">&#10148; Salir</button>
+  </div>
+</div>
+
+<!-- LEFT PANEL -->
+<div class="sL">
+  <div>
+    <div class="section-title">Contenedor</div>
+    <div class="presets" id="pgrid"></div>
+    <div class="card">
+      <div class="row c3">
+        <div class="field"><label>Largo cm</label><input type="number" id="cL" value="1360" min="10" onchange="onCC()"></div>
+        <div class="field"><label>Ancho cm</label><input type="number" id="cW" value="250" min="10" onchange="onCC()"></div>
+        <div class="field"><label>Alto cm</label><input type="number" id="cH" value="270" min="10" onchange="onCC()"></div>
+      </div>
+      <div class="row c2">
+        <div class="field"><label>Peso max kg</label><input type="number" id="cP" value="30000" min="0" onchange="metrics()"></div>
+        <div class="field" style="justify-content:flex-end"><div style="font-size:9px;color:var(--tx3)">Tipo</div><input type="text" id="cTp" value="Trailer MX" readonly style="color:var(--ac);border-color:transparent;background:transparent;font-size:10px"></div>
+      </div>
+      <button class="btn btn-ghost btn-full" id="brc" onclick="rstPR()" style="display:none;font-size:9px;margin-top:4px">&#8634; Reiniciar preset</button>
+    </div>
+    <div class="note">&#9432; M&#225;rgenes internos: -15cm lados, -30cm alto, -30cm puertas.</div>
+  </div>
+
+  <div>
+    <div class="section-title">Capacidad</div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span style="font-size:9px;color:var(--tx3)">Volumen: <b id="vU" style="color:var(--tx);font-family:'JetBrains Mono',monospace">0</b> / <b id="vT" style="color:var(--tx2);font-family:'JetBrains Mono',monospace">0</b> m&#179;</span>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" id="eBar" style="width:0%;background:var(--g)"><span class="progress-label" id="eLbl">0%</span></div></div>
+    <div class="section-title" style="margin-top:8px">Distribuci&#243;n de peso</div>
+    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--tx3)"><span>Fondo</span><span>Centro</span><span>Puerta</span></div>
+    <div class="wdist" id="wDist"><div style="width:33%;background:var(--g)"></div><div style="width:34%;background:var(--g)"></div><div style="width:33%;background:var(--g)"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--tx3);margin-top:1px"><span id="wdF">0 kg</span><span id="wdC">0 kg</span><span id="wdB">0 kg</span></div>
+  </div>
+
+  <div>
+    <div class="section-title">Agregar producto</div>
+    <div class="card">
+      <div class="admin-product-tabs">
+        <button class="apt active" id="tabCatalog" onclick="setProductTab('catalog')">&#128230; Cat&#225;logo</button>
+        <button class="apt" id="tabOpen" onclick="setProductTab('open')">&#9998; Medida libre</button>
+      </div>
+
+      <!-- CATALOG TAB -->
+      <div id="panelCatalog">
+        <div style="margin-bottom:6px">
+          <input type="text" id="catSearch" placeholder="Buscar producto..." style="width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:11px;padding:6px 8px;outline:none" oninput="renderCatalogList()">
+        </div>
+        <div id="catalogList" style="max-height:18vh;overflow-y:auto"></div>
+        <div class="note" id="catEmpty" style="display:none">Sin productos en cat&#225;logo. El administrador debe cargar productos.</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+          <div class="field" style="flex:1"><label>Cantidad</label><input type="number" id="catQty" value="1" min="1" style="width:100%"></div>
+          <div class="field" style="flex:1"><label>Peso/ud kg</label><input type="number" id="catKg" value="0" min="0" step="0.01" style="width:100%"></div>
+        </div>
+        <div id="catSelInfo" style="font-size:9px;color:var(--ac);margin:4px 0;min-height:14px"></div>
+        <button class="btn btn-primary btn-full" onclick="addFromCatalog()">+ Agregar al contenedor</button>
+      </div>
+
+      <!-- OPEN MEASURE TAB -->
+      <div id="panelOpen" style="display:none">
+        <div class="open-measure-form">
+          <div class="om-title">&#9998; Producto con medidas libres</div>
+          <div class="type-toggle">
+            <div class="type-btn active" id="tL" onclick="setTipo('lamina')">&#9638; L&#225;mina</div>
+            <div class="type-btn" id="tC" onclick="setTipo('caja')">&#9634; Caja</div>
+          </div>
+          <div class="row" style="grid-template-columns:1fr"><div class="field"><label>Nombre</label><input type="text" id="pN" value="Producto libre"></div></div>
+          <div class="row c4">
+            <div class="field"><label>Largo cm</label><input type="number" id="pL" value="244" min="0.1" step="0.1"></div>
+            <div class="field"><label>Ancho cm</label><input type="number" id="pW" value="122" min="0.1" step="0.1"></div>
+            <div class="field"><label id="lAlt">Espesor cm</label><input type="number" id="pH" value="1.8" min="0.01" step="0.01"></div>
+            <div class="field"><label>Cantidad</label><input type="number" id="pQ" value="1" min="1"></div>
+          </div>
+          <div class="row c2">
+            <div class="field"><label>Peso por unidad kg</label><input type="number" id="pK" value="0" min="0" step="0.01"></div>
+            <div class="field" style="justify-content:flex-end"><div style="font-size:9px;color:var(--tx3)">Peso total</div><div id="pTP" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--w);font-weight:700">0.00 kg</div></div>
+          </div>
+          <div class="field" style="margin-bottom:6px"><label>Color</label><div class="color-grid" id="cpk"></div></div>
+        </div>
+        <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="addProd()">+ Agregar al contenedor</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEWPORT -->
+<div class="vp" id="vport">
+  <div id="tooltip3d"><div class="t-name"></div><div class="t-data"></div></div>
+  <div class="vp-badge" id="mBdg" style="border-color:var(--ac);color:var(--ac)">&#9679; Autom&#225;tico</div>
+  <div class="vp-top-left">
+    <button class="btn btn-ghost" style="font-size:9px;padding:3px 7px" onclick="rstCam()">&#8634; Vista</button>
+  </div>
+  <div class="vp-top-right" id="ovH">Rotar: clic + arrastrar &nbsp;&#183;&nbsp; Zoom: scroll</div>
+  <div style="position:absolute;bottom:36px;left:8px;right:8px">
+    <div class="layer-ctrl" id="layerCtrl" style="display:none">
+      <span style="font-size:8px;color:var(--tx3)">CAPA Y</span>
+      <input type="range" id="layerSlider" min="0" max="100" value="100" oninput="onLayerChange(this.value)">
+      <span class="lv" id="layerVal">100%</span>
+    </div>
+  </div>
+  <div class="vp-bottom">
+    <div class="stat-chip"><span class="s-label">Colocadas</span><span class="s-value" id="oPz" style="color:var(--ac)">0</span></div>
+    <div class="stat-chip"><span class="s-label">No cupieron</span><span class="s-value" id="oNo" style="color:var(--r)">0</span></div>
+    <div class="stat-chip"><span class="s-label">Peso</span><span class="s-value" id="oKg" style="color:var(--w)">0 kg</span></div>
+    <div class="stat-chip"><span class="s-label">Volumen</span><span class="s-value" id="oVol" style="color:var(--g)">0 / 0 m&#179;</span></div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="sR">
+  <div>
+    <div class="section-title">Acomodo</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn btn-success" style="flex:1;font-size:10px" onclick="doOptimal()">&#9733; Ideal</button>
+      <button class="btn btn-ghost" style="flex:1;font-size:10px;color:var(--pp);border-color:var(--pp)" onclick="setManual()">&#9997; Manual</button>
+    </div>
+    <button class="btn btn-warn btn-full" style="margin-top:4px;font-size:10px" onclick="redistConfirm()">&#8635; Redistribuir</button>
+    <div id="manH" style="display:none;margin-top:4px" class="sel-info">&#9997; Clic en pieza, flechas para mover, R = rotar (solo cajas).</div>
+  </div>
+
+  <div><div class="section-title">Alertas</div><div id="alP"></div></div>
+
+  <div id="selP" style="display:none">
+    <div class="section-title">Pieza seleccionada</div>
+    <div class="sel-info" id="selI"></div>
+    <div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" id="btnRot" onclick="rotSel()">&#8635; Rotar</button>
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" onclick="mv(-1,0,0)">&#8592;</button>
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" onclick="mv(1,0,0)">&#8594;</button>
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" onclick="mv(0,0,-1)">Fondo</button>
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" onclick="mv(0,0,1)">Frente</button>
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" onclick="mv(0,1,0)">&#9650;</button>
+      <button class="btn btn-ghost" style="font-size:9px;padding:3px 6px" onclick="mv(0,-1,0)">&#9660;</button>
+    </div>
+    <button class="btn btn-ghost btn-full" style="margin-top:4px;font-size:9px" onclick="undo()">&#8630; Deshacer</button>
+  </div>
+
+  <div style="flex:1;min-height:0">
+    <div class="section-title">Productos (<span id="pCt">0</span>)</div>
+    <div id="pList" style="max-height:28vh;overflow-y:auto"></div>
+    <button class="btn btn-ghost btn-full" onclick="clearAll()" style="margin-top:4px;font-size:9px">Limpiar todo</button>
+  </div>
+
+  <div>
+    <div class="section-title">Exportar</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-full" onclick="expPDF()" style="font-size:10px">PDF</button>
+    </div>
+    <div id="histList" style="margin-top:6px;max-height:12vh;overflow-y:auto"></div>
+  </div>
+</div>
+</div><!-- end .app -->
+
+<!-- PRINT SECTION -->
+<div class="print-section" id="printSec">
+  <h2 id="printTitle">Ultralam &#8212; Reporte de Carga</h2>
+  <div id="prMeta"></div><div id="prImg" style="margin:8px 0"></div>
+  <table><thead><tr><th>Producto</th><th>Tipo</th><th>Medidas cm</th><th>Cant</th><th>Kg/ud</th><th>Kg total</th></tr></thead><tbody id="prBody"></tbody></table>
+  <div id="prSum" style="margin-top:6px;font-size:12px"></div>
+</div>
+
+<script>
+if(typeof THREE==='undefined'){document.body.innerHTML='<div style="padding:40px;text-align:center;color:#E03E3E"><h2>Error: Three.js no cargado</h2></div>';throw new Error('THREE');}
+
+const $=id=>{const e=document.getElementById(id);if(!e)console.warn('Missing #'+id);return e||document.createElement('div');};
+
+// ===== SYSTEM CONFIG =====
+let SYS_CONFIG={
+  name:'Ultralam — Carga 3D',
+  logo:'',
+  marginLado:15,
+  marginAlto:30,
+  marginPuerta:30,
+  loadFromBack:true
+};
+
+function loadSysConfig(){
+  try{const s=localStorage.getItem('ultralam_sys_config');if(s){const c=JSON.parse(s);Object.assign(SYS_CONFIG,c);}}catch(e){}
+  syncSysConfigFromServer();
+}
+function saveSysConfig(){
+  try{localStorage.setItem('ultralam_sys_config',JSON.stringify(SYS_CONFIG));}catch(e){}
+  sb.from('simulator_settings').upsert({key:'simulator_config',value:SYS_CONFIG,updated_at:new Date().toISOString()})
+    .then(({error})=>{if(error)console.warn('[cfg] save failed:',error.message);});
+}
+async function syncSysConfigFromServer(){
+  try{
+    const{data}=await sb.from('simulator_settings').select('value').eq('key','simulator_config').single();
+    if(data?.value){Object.assign(SYS_CONFIG,data.value);try{localStorage.setItem('ultralam_sys_config',JSON.stringify(SYS_CONFIG));}catch(e){}applyBranding();}
+  }catch(e){console.warn('[cfg] sync failed:',e.message);}
+}
+
+function applyBranding(){
+  const n=SYS_CONFIG.name||'Ultralam — Carga 3D';
+  const l=SYS_CONFIG.logo||'';
+  document.title=n;
+  $('pageTitle').textContent=n;
+  // auth screen
+  const aln=$('authLogoName');if(aln)aln.innerHTML=`<b>${n.split('—')[0].trim()||n}</b>`;
+  const ali=$('authLogoImg');if(ali&&l){ali.src=l;ali.style.display='';}else if(ali)ali.style.display='none';
+  // admin header
+  const adln=$('adminLogoName');if(adln)adln.innerHTML=`<b>${n.split('—')[0].trim()||n}</b>`;
+  const adli=$('adminLogoImg');if(adli&&l){adli.src=l;adli.style.display='';}else if(adli)adli.style.display='none';
+  // app header
+  const appln=$('appLogoName');if(appln)appln.innerHTML=`<b>${n.split('—')[0].trim()||n}</b>`;
+  const appli=$('appLogoImg');if(appli&&l){appli.src=l;appli.style.display='';}else if(appli)appli.style.display='none';
+  // print
+  $('printTitle').textContent=n+' — Reporte de Carga';
+}
+
+// ===== SUPABASE =====
+const SUPABASE_URL='https://prdgtlbcbaluqnjydnmw.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_kYenWPtUaXDsAc9oA9MlZA_GJvAGKao';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+// ===== AUTH STATE =====
+let currentUser=null; // {id, email, isAdmin, name}
+
+function showAuthMsg(id,msg,type){const el=$(id);el.textContent=msg;el.className='auth-msg '+type;}
+
+async function syncAllFromServer(){
+  showSaveOk('Sincronizando...');
+  await Promise.all([syncSysConfigFromServer(),syncVehiclesFromServer(),syncCatalogFromServer()]);
+  try{renderPR();renderCatalogList();}catch(e){}
+  showSaveOk('Datos actualizados');
+}
+
+// ===== TOAST DE GUARDADO =====
+function _ensureToast(){let t=document.getElementById('saveToast');if(!t){t=document.createElement('div');t.id='saveToast';t.style.cssText='position:fixed;bottom:18px;right:18px;z-index:9999;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:340px;display:none';document.body.appendChild(t);}return t;}
+function showSaveOk(msg){const t=_ensureToast();t.style.background='#0F7B0F';t.style.color='#fff';t.textContent='✓ '+msg;t.style.display='';clearTimeout(t._h);t._h=setTimeout(()=>{t.style.display='none';},2200);}
+function showSaveError(what,err){const t=_ensureToast();t.style.background='#E03E3E';t.style.color='#fff';t.textContent='⚠ Error al guardar '+what+': '+err+'. Verifica que tu rol sea admin en Supabase.';t.style.display='';clearTimeout(t._h);t._h=setTimeout(()=>{t.style.display='none';},6000);}
+
+async function sendOTP(){
+  const email=$('authEmail').value.trim().toLowerCase();
+  if(!email||!email.includes('@')){showAuthMsg('authMsg','Ingresa un correo válido.','err');return;}
+  $('sendOtpBtn').disabled=true;
+  showAuthMsg('authMsg','Enviando código...','info');
+  const{error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+  if(error){showAuthMsg('authMsg',error.message,'err');$('sendOtpBtn').disabled=false;return;}
+  showAuthMsg('authMsg','Código enviado a '+email,'ok');
+  $('authStep2Desc').textContent='Código enviado a '+email+'. Revisa tu bandeja.';
+  $('authStep1').style.display='none';
+  $('authStep2').style.display='';
+  $('authOTP').focus();
+}
+
+async function verifyOTP(){
+  const email=$('authEmail').value.trim().toLowerCase();
+  const token=$('authOTP').value.trim();
+  if(token.length<6){showAuthMsg('authMsg2','Ingresa el código completo.','err');return;}
+  $('verifyOtpBtn').disabled=true;
+  showAuthMsg('authMsg2','Verificando...','info');
+  let result=await sb.auth.verifyOtp({email,token,type:'email'});
+  if(result.error)result=await sb.auth.verifyOtp({email,token,type:'signup'});
+  if(result.error)result=await sb.auth.verifyOtp({email,token,type:'magiclink'});
+  if(result.error){
+    showAuthMsg('authMsg2','Código incorrecto o expirado.','err');
+    $('verifyOtpBtn').disabled=false;
+    return;
+  }
+  // Éxito: forzar el flujo de login si onAuthStateChange no dispara
+  showAuthMsg('authMsg2','✓ Acceso concedido','ok');
+  if(result.data&&result.data.user){
+    await onUserLogin(result.data.user);
+  }
+  $('verifyOtpBtn').disabled=false;
+}
+
+function backToEmail(){
+  $('authStep1').style.display='';$('authStep2').style.display='none';
+  showAuthMsg('authMsg','','');$('sendOtpBtn').disabled=false;$('authOTP').value='';
+}
+
+const SUPER_ADMIN='sistemas@ultralam.com.mx';
+let _loginDone=false;
+async function onUserLogin(user){
+  if(_loginDone)return;
+  _loginDone=true;
+  const emailLower=(user.email||'').toLowerCase();
+  const isSuper=emailLower===SUPER_ADMIN;
+  let role='user',nombre=(user.email||'').split('@')[0];
+  // Consultar perfil con timeout — si falla, seguimos con valores por defecto
+  try{
+    const profilePromise=sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3500));
+    const{data:profile}=await Promise.race([profilePromise,timeout]).catch(e=>({data:null}));
+    if(profile){role=profile.role||'user';if(profile.nombre)nombre=profile.nombre;}
+  }catch(e){console.warn('[auth] profile fetch failed:',e.message);}
+  // Auto-promover sistemas@ultralam si no es admin (no bloquea login si falla)
+  if(isSuper&&role!=='admin'){
+    sb.from('profiles').upsert({id:user.id,email:user.email,role:'admin'}).then(()=>{},()=>{});
+    role='admin';
+  }
+  currentUser={id:user.id,email:user.email,isAdmin:role==='admin'||isSuper,name:nombre};
+  try{const n=localStorage.getItem('ultralam_user_name_'+user.email);if(n)currentUser.name=n;}catch(e){}
+  appendLog({type:'login',email:user.email,ts:new Date().toISOString()});
+  $('authScreen').style.display='none';
+  if(currentUser.isAdmin){showAdminPanel();}else{showMainApp();}
+}
+
+async function signOut(){
+  try{await sb.auth.signOut();}catch(e){}
+  try{Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));}catch(e){}
+  window.location.reload();
+}
+function goToPortal(){window.location.href='/';}
+
+// ===== LOG =====
+function appendLog(entry){
+  try{const k='ultralam_access_log';const l=JSON.parse(localStorage.getItem(k)||'[]');l.unshift(entry);if(l.length>500)l.length=500;localStorage.setItem(k,JSON.stringify(l));}catch(e){}
+}
+function renderLog(){
+  try{const l=JSON.parse(localStorage.getItem('ultralam_access_log')||'[]');
+  if(!l.length){$('logContainer').innerHTML='<div class="note">Sin registros.</div>';return;}
+  $('logContainer').innerHTML=l.slice(0,100).map(e=>{
+    const d=new Date(e.ts);const ds=d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    const icon=e.type==='login'?'🔑':e.type==='save'?'💾':'📄';
+    return`<div class="log-item"><span class="log-user">${icon} ${e.email||'?'}</span><span class="log-action">${e.type==='login'?'Inicio de sesión':e.type==='save'?'Guardó simulación':'Acción'}</span><span class="log-time">${ds}</span></div>`;
+  }).join('');}catch(e){$('logContainer').innerHTML='<div class="note">Error al cargar.</div>';}
+}
+function clearLog(){if(confirm('¿Limpiar todo el registro de acceso?')){localStorage.removeItem('ultralam_access_log');renderLog();}}
+
+// ===== ADMIN PANEL =====
+function showAdminPanel(){
+  $('adminPanel').style.display='flex';
+  $('mainApp').style.display='none';
+  // fill admin config fields from current state
+  $('cfgSysName').value=SYS_CONFIG.name||'';
+  $('cfgLogoUrl').value=SYS_CONFIG.logo||'';
+  $('cfgMarginLado').value=SYS_CONFIG.marginLado??15;
+  $('cfgMarginAlto').value=SYS_CONFIG.marginAlto??30;
+  $('cfgMarginPuerta').value=SYS_CONFIG.marginPuerta??30;
+  $('cfgLoadDir').value=SYS_CONFIG.loadFromBack===false?'front':'back';
+  previewLogo();
+  const ae=$('adminUserEmail');if(ae)ae.textContent=currentUser.email;
+  const av=$('adminAvatar');if(av)av.textContent=(currentUser.name||currentUser.email).slice(0,1).toUpperCase();
+  renderVehiclesTable();renderUsersTable();renderProductsTable();renderLog();
+}
+function openSimFromAdmin(){$('adminPanel').style.display='none';showMainApp();}
+function adminNav(sec){
+  document.querySelectorAll('.admin-nav-item').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.admin-section').forEach(e=>e.classList.remove('active'));
+  $('nav-'+sec).classList.add('active');
+  $('sec-'+sec).classList.add('active');
+  if(sec==='log')renderLog();
+}
+
+// ===== HELPER: leer archivo Excel/CSV unificado =====
+function readSpreadsheet(file, callback){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const reader=new FileReader();
+  if(ext==='xlsx'||ext==='xls'){
+    reader.onload=function(ev){
+      try{
+        const wb=XLSX.read(ev.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).filter(r=>r.some(c=>c!==''&&c!=null));
+        callback(rows.map(r=>r.map(c=>String(c==null?'':c))));
+      }catch(e){alert('Error al leer Excel: '+e.message);}
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.onload=function(ev){callback(parseCSV(ev.target.result));};
+    reader.readAsText(file);
+  }
+}
+
+// ===== VEHICLE MANAGEMENT =====
+function renderVehiclesTable(){
+  loadVehicles();
+  $('vehCount').textContent=PR.length+' vehículos';
+  $('vehTbody').innerHTML=PR.length?PR.map((v,i)=>`<tr>
+    <td style="color:var(--tx3)">${i+1}</td>
+    <td><b>${v.n}</b><div style="font-size:9px;color:var(--tx3);font-family:'JetBrains Mono',monospace">${v.k}</div></td>
+    <td><input type="number" value="${v.l}" min="10" onchange="editVehicleField(${i},'l',this.value)" style="width:70px;background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);padding:3px 6px;font-size:11px;font-family:'JetBrains Mono',monospace"></td>
+    <td><input type="number" value="${v.w}" min="10" onchange="editVehicleField(${i},'w',this.value)" style="width:70px;background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);padding:3px 6px;font-size:11px;font-family:'JetBrains Mono',monospace"></td>
+    <td><input type="number" value="${v.h}" min="10" onchange="editVehicleField(${i},'h',this.value)" style="width:70px;background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);padding:3px 6px;font-size:11px;font-family:'JetBrains Mono',monospace"></td>
+    <td><input type="number" value="${v.p}" min="0" onchange="editVehicleField(${i},'p',this.value)" style="width:90px;background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);padding:3px 6px;font-size:11px;font-family:'JetBrains Mono',monospace"></td>
+    <td>
+      <button class="btn btn-ghost" style="padding:3px 8px;font-size:10px" onclick="renameVehicle(${i})">&#9998;</button>
+      <button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="deleteVehicle(${i})">&#10005;</button>
+    </td>
+  </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tx3)">Sin vehículos. Agrega uno o restaura los predeterminados.</td></tr>';
+}
+function editVehicleField(i,field,val){const n=parseFloat(val)||0;PR[i][field]=n;saveVehicles();try{renderPR();}catch(e){}}
+function renameVehicle(i){const n=prompt('Nuevo nombre:',PR[i].n);if(n&&n.trim()){PR[i].n=n.trim();saveVehicles();renderVehiclesTable();try{renderPR();}catch(e){}}}
+function deleteVehicle(i){if(confirm('¿Eliminar "'+PR[i].n+'"?')){PR.splice(i,1);saveVehicles();renderVehiclesTable();try{renderPR();}catch(e){}}}
+function addVehicleManual(){
+  const n=prompt('Nombre del vehículo:');if(!n)return;
+  const l=parseFloat(prompt('Largo (cm):'))||0;
+  const w=parseFloat(prompt('Ancho (cm):'))||0;
+  const h=parseFloat(prompt('Alto (cm):'))||0;
+  const p=parseFloat(prompt('Peso máximo (kg):'))||0;
+  if(!l||!w||!h){alert('Medidas inválidas');return;}
+  const k='veh_'+Date.now().toString(36);
+  PR.push({k,n:n.trim(),l,w,h,p});
+  saveVehicles();renderVehiclesTable();try{renderPR();}catch(e){}
+}
+function importVehiclesFile(e){
+  const file=e.target.files[0];if(!file)return;
+  readSpreadsheet(file,function(rows){
+    if(rows.length<2){alert('Archivo vacío');return;}
+    const hdr=rows[0].map(h=>String(h).toLowerCase().trim());
+    const iN=hdr.findIndex(h=>h.includes('nombre')||h==='name');
+    const iL=hdr.findIndex(h=>h.includes('largo')||h==='l');
+    const iW=hdr.findIndex(h=>h.includes('ancho')||h==='w');
+    const iH=hdr.findIndex(h=>h.includes('alto')||h==='h');
+    const iP=hdr.findIndex(h=>h.includes('peso')||h==='p');
+    if(iN<0||iL<0||iW<0||iH<0){alert('Faltan columnas: nombre, largo, ancho, alto.');return;}
+    let count=0;
+    for(let i=1;i<rows.length;i++){const r=rows[i];const n=r[iN];const l=parseFloat(r[iL]),w=parseFloat(r[iW]),h=parseFloat(r[iH]);if(!n||!l||!w||!h)continue;
+      PR.push({k:'veh_'+Date.now().toString(36)+'_'+i,n:String(n).trim(),l,w,h,p:iP>=0?parseFloat(r[iP])||0:0});count++;}
+    saveVehicles();renderVehiclesTable();try{renderPR();}catch(e){}
+    alert(count+' vehículos importados.');
+  });
+  e.target.value='';
+}
+function downloadVehiclesTemplate(){
+  const csv='nombre,largo,ancho,alto,peso_max\nTrailer Personalizado,1400,250,270,28000\nUnidad Especial,800,240,250,18000\n';
+  const b=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='plantilla_vehiculos.csv';a.click();
+}
+function resetVehicles(){if(confirm('¿Restaurar vehículos predeterminados? Se perderán los cambios.')){PR=DEFAULT_PR.slice();saveVehicles();renderVehiclesTable();try{renderPR();}catch(e){}}}
+
+// ===== USER MANAGEMENT (Supabase profiles) =====
+let adminUsers=[];
+function loadAdminUsers(){}
+async function renderUsersTable(){
+  const{data,error}=await sb.from('profiles').select('*').order('created_at');
+  adminUsers=data||[];
+  $('userCount').textContent=adminUsers.length+' usuarios';
+  $('usersTbody').innerHTML=adminUsers.length?adminUsers.map((u,i)=>`<tr>
+    <td style="color:var(--tx3)">${i+1}</td>
+    <td><b>${u.nombre||'—'}</b></td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx2)">${u.email||'—'}</td>
+    <td>
+      <select onchange="setUserRole('${u.id}',this.value)" style="background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);padding:2px 6px;font-size:10px">
+        <option value="user" ${u.role==='user'?'selected':''}>Usuario</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      </select>
+    </td>
+    <td><span style="font-size:9px;color:var(--tx3)">${u.created_at?new Date(u.created_at).toLocaleDateString('es-MX'):''}</span></td>
+  </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--tx3)">Sin usuarios registrados aún.</td></tr>';
+}
+async function setUserRole(id,role){
+  const{error}=await sb.from('profiles').update({role}).eq('id',id);
+  if(error)alert('Error: '+error.message);else renderUsersTable();
+}
+function addUserManual(){alert('Los usuarios se registran solos al ingresar con OTP por primera vez.');}
+function importUsersCSV(){}
+function downloadUsersTemplate(){const csv='email,nombre,role\njuan@empresa.com,Juan Pérez,user\nadmin@empresa.com,Admin,admin\n';const b=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='plantilla_usuarios.csv';a.click();}
+
+// ===== PRODUCT CATALOG MANAGEMENT =====
+let adminCatalog=[];
+const COLORS_PALETTE=['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16','#F97316','#6366F1','#14B8A6','#E11D48','#A855F7','#0EA5E9','#D946EF','#22C55E','#FBBF24','#FB7185','#2DD4BF','#818CF8'];
+function loadAdminCatalog(){try{adminCatalog=JSON.parse(localStorage.getItem('ultralam_admin_catalog')||'[]');}catch(e){adminCatalog=[];}syncCatalogFromServer();}
+function saveAdminCatalog(){
+  try{localStorage.setItem('ultralam_admin_catalog',JSON.stringify(adminCatalog));}catch(e){}
+  sb.from('simulator_settings').upsert({key:'simulator_catalog',value:adminCatalog,updated_at:new Date().toISOString()})
+    .then(({error})=>{if(error){console.warn('[cat] save failed:',error.message);showSaveError('catálogo',error.message);}else showSaveOk('Catálogo sincronizado');});
+}
+async function syncCatalogFromServer(){
+  try{
+    const{data}=await sb.from('simulator_settings').select('value').eq('key','simulator_catalog').single();
+    if(data?.value&&Array.isArray(data.value)&&data.value.length){
+      const sJson=JSON.stringify(data.value);
+      if(sJson!==JSON.stringify(adminCatalog)){
+        adminCatalog=data.value;
+        try{localStorage.setItem('ultralam_admin_catalog',sJson);}catch(e){}
+        try{if(document.getElementById('prodTbody'))renderProductsTable();}catch(e){}
+        try{renderCatalogList();}catch(e){}
+      }
+    }
+  }catch(e){console.warn('[cat] sync failed:',e.message);}
+}
+function renderProductsTable(){
+  loadAdminCatalog();
+  $('prodCount').textContent=adminCatalog.length+' productos';
+  $('prodTbody').innerHTML=adminCatalog.length?adminCatalog.map((p,i)=>`<tr><td><div style="width:12px;height:12px;border-radius:3px;background:${p.color||'#3B82F6'};border:1px solid var(--bd)"></div></td><td><b>${p.nombre}</b></td><td><span class="tag ${p.tipo==='lamina'?'tag-lam':'tag-caj'}">${p.tipo==='lamina'?'Lám':'Caja'}</span></td><td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx2)">${p.largo}×${p.ancho}×${p.alto}</td><td style="font-family:'JetBrains Mono',monospace;font-size:10px">${p.pesoUd||0} kg</td><td><button class="btn-danger" onclick="deleteProduct(${i})">&#10005;</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--tx3)">Sin productos. Importa un CSV.</td></tr>';
+}
+function deleteProduct(i){adminCatalog.splice(i,1);saveAdminCatalog();renderProductsTable();}
+function clearAllProducts(){if(confirm('¿Limpiar todo el catálogo?')){adminCatalog=[];saveAdminCatalog();renderProductsTable();}}
+function addProductManual(){
+  const nombre=prompt('Nombre del producto:');if(!nombre)return;
+  const largo=parseFloat(prompt('Largo (cm):'))||244;
+  const ancho=parseFloat(prompt('Ancho (cm):'))||122;
+  const alto=parseFloat(prompt('Alto/Espesor (cm):'))||1.8;
+  const pesoUd=parseFloat(prompt('Peso por unidad (kg):'))||0;
+  const tipo=(prompt('Tipo (lamina/caja):'))||'lamina';
+  const color=COLORS_PALETTE[adminCatalog.length%COLORS_PALETTE.length];
+  adminCatalog.push({nombre,largo,ancho,alto,pesoUd,tipo:tipo.includes('caja')?'caja':'lamina',color});
+  saveAdminCatalog();renderProductsTable();
+}
+function importProductsCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  readSpreadsheet(file,function(rows){
+    if(rows.length<2)return;
+    const hdr=rows[0].map(h=>String(h).toLowerCase().trim());
+    const iN=hdr.findIndex(h=>h.includes('nombre')),iL=hdr.findIndex(h=>h.includes('largo')||h==='l'),iW=hdr.findIndex(h=>h.includes('ancho')||h==='w'),iH=hdr.findIndex(h=>h.includes('alto')||h.includes('espesor')),iK=hdr.findIndex(h=>h.includes('peso')),iT=hdr.findIndex(h=>h.includes('tipo')),iC=hdr.findIndex(h=>h.includes('color'));
+    if(iL<0||iW<0||iH<0){alert('Faltan columnas: largo, ancho, alto/espesor.');return;}
+    let count=0;
+    for(let i=1;i<rows.length;i++){const r=rows[i];if(!r[iL])continue;
+      const nombre=iN>=0?r[iN]:'Producto '+(adminCatalog.length+count+1);
+      const largo=parseFloat(r[iL])||0,ancho=parseFloat(r[iW])||0,alto=parseFloat(r[iH])||0;if(!largo||!ancho||!alto)continue;
+      const pesoUd=iK>=0?parseFloat(r[iK])||0:0;
+      const tipo=iT>=0&&r[iT]&&String(r[iT]).toLowerCase().includes('caja')?'caja':'lamina';
+      const color=iC>=0&&r[iC]?r[iC]:COLORS_PALETTE[(adminCatalog.length+count)%COLORS_PALETTE.length];
+      adminCatalog.push({nombre,largo,ancho,alto,pesoUd,tipo,color});count++;
+    }
+    saveAdminCatalog();renderProductsTable();alert(count+' productos importados.');
+  });
+  e.target.value='';
+}
+function downloadProductsTemplate(){const csv='nombre,largo,ancho,alto,peso_ud,tipo,color\nLamina 4x8,244,122,1.8,30,lamina,#3B82F6\nCaja A,60,40,50,15,caja,#F59E0B\n';const b=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='plantilla_productos.csv';a.click();}
+
+// ===== CONFIG MANAGEMENT =====
+function previewLogo(){const url=$('cfgLogoUrl').value.trim();const p=$('cfgLogoPreview');if(p){p.src=url||'';}}
+function loadLogoFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();reader.onload=function(ev){$('cfgLogoUrl').value=ev.target.result;previewLogo();};reader.readAsDataURL(file);
+}
+function saveSystemConfig(){
+  SYS_CONFIG.name=$('cfgSysName').value.trim()||'Ultralam — Carga 3D';
+  SYS_CONFIG.logo=$('cfgLogoUrl').value.trim();
+  SYS_CONFIG.marginLado=parseFloat($('cfgMarginLado').value)||0;
+  SYS_CONFIG.marginAlto=parseFloat($('cfgMarginAlto').value)||0;
+  SYS_CONFIG.marginPuerta=parseFloat($('cfgMarginPuerta').value)||0;
+  SYS_CONFIG.loadFromBack=$('cfgLoadDir').value==='back';
+  saveSysConfig();
+  applyBranding();
+  try{fullRebuild();}catch(e){}
+  const m=$('configSavedMsg');m.style.display='';setTimeout(()=>{m.style.display='none';},2500);
+}
+
+// ===== MAIN APP =====
+function showMainApp(){
+  loadAdminCatalog();loadAdminUsers();loadVehicles();
+  $('adminPanel').style.display='none';
+  $('mainApp').style.display='grid';
+  // Mostrar botón admin solo a administradores
+  const ab=$('adminBtnInApp');if(ab)ab.style.display=currentUser&&currentUser.isAdmin?'':'none';
+  // Set user UI
+  const chip=$('appUserLabel'),av=$('appAvatar');
+  if(chip)chip.textContent=currentUser.name;
+  if(av)av.textContent=(currentUser.name||'U').slice(0,1).toUpperCase();
+  renderCatalogList();
+  try{updateSceneBg();renderPR();renderCP();renderPL();drawCont();metrics();onResize();anim();renderHistory();}catch(e){console.error('Init error:',e);}
+}
+
+// ===== SETTINGS MODAL =====
+function openSettings(){$('settingUserName').value=currentUser.name||'';$('settingsModal').classList.add('open');}
+function closeSettings(){$('settingsModal').classList.remove('open');}
+function saveSettings(){
+  const n=$('settingUserName').value.trim();
+  if(n){currentUser.name=n;try{localStorage.setItem('ultralam_user_name_'+currentUser.email,n);}catch(e){}
+  const chip=$('appUserLabel'),av=$('appAvatar');if(chip)chip.textContent=n;if(av)av.textContent=n.slice(0,1).toUpperCase();}
+  closeSettings();
+}
+
+// ===== CATALOG PICKER =====
+let selectedCatalogItem=null;
+function renderCatalogList(){
+  loadAdminCatalog();
+  const search=($('catSearch').value||'').toLowerCase();
+  const items=adminCatalog.filter(p=>!search||p.nombre.toLowerCase().includes(search));
+  const el=$('catalogList');const em=$('catEmpty');
+  if(!adminCatalog.length){el.innerHTML='';em.style.display='';return;}
+  em.style.display='none';
+  if(!items.length){el.innerHTML='<div style="font-size:10px;color:var(--tx3);text-align:center;padding:8px">Sin resultados</div>';return;}
+  el.innerHTML=items.map((p,i)=>`<div class="cat-item ${selectedCatalogItem&&selectedCatalogItem.nombre===p.nombre?'':''}\" onclick="selectCatalogItem(${adminCatalog.indexOf(p)})" style="border-color:${selectedCatalogItem&&selectedCatalogItem.nombre===p.nombre?'var(--ac)':'var(--bd)'}">
+    <div style="width:10px;height:10px;border-radius:3px;background:${p.color||'#3B82F6'};flex-shrink:0"></div>
+    <div class="cat-name">${p.nombre}</div>
+    <span style="font-size:9px;margin-right:4px;color:var(--tx3);font-family:'JetBrains Mono',monospace">${p.largo}×${p.ancho}×${p.alto}</span>
+    <span class="tag ${p.tipo==='lamina'?'tag-lam':'tag-caj'}" style="flex-shrink:0">${p.tipo==='lamina'?'L':'C'}</span>
+  </div>`).join('');
+}
+function selectCatalogItem(idx){
+  selectedCatalogItem=adminCatalog[idx];
+  $('catKg').value=selectedCatalogItem.pesoUd||0;
+  $('catSelInfo').textContent=`✓ ${selectedCatalogItem.nombre} — ${selectedCatalogItem.largo}×${selectedCatalogItem.ancho}×${selectedCatalogItem.alto} cm`;
+  renderCatalogList();
+}
+function addFromCatalog(){
+  if(!selectedCatalogItem){alert('Selecciona un producto del catálogo.');return;}
+  const qty=parseInt($('catQty').value)||1;
+  const kg=parseFloat($('catKg').value)||selectedCatalogItem.pesoUd||0;
+  const prod={id:++idC,nombre:selectedCatalogItem.nombre,largo:selectedCatalogItem.largo,ancho:selectedCatalogItem.ancho,alto:selectedCatalogItem.alto,cantidad:qty,pesoUd:kg,color:selectedCatalogItem.color||selColor,tipo:selectedCatalogItem.tipo||'lamina'};
+  products.push(prod);renderCP();packAllProducts();drawBoxes();metrics();renderPL();
+}
+
+function setProductTab(t){
+  $('tabCatalog').classList.toggle('active',t==='catalog');
+  $('tabOpen').classList.toggle('active',t==='open');
+  $('panelCatalog').style.display=t==='catalog'?'':'none';
+  $('panelOpen').style.display=t==='open'?'':'none';
+}
+
+// ===== EXPANDED COLORS =====
+const COLORS=['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16','#F97316','#6366F1','#14B8A6','#E11D48','#A855F7','#0EA5E9','#D946EF','#22C55E','#FBBF24','#FB7185','#2DD4BF','#818CF8'];
+let selColor=COLORS[0],products=[],placements=[],overflow=[],idC=0,wfMode=false,mode='auto',selIdx=-1,lastPK='trailer',prodTipo='lamina';
+let undoStack=[];
+
+function getInternal(c){const ml=+SYS_CONFIG.marginLado||0,ma=+SYS_CONFIG.marginAlto||0,mp=+SYS_CONFIG.marginPuerta||0;return{l:c.l-mp,w:c.w-2*ml,h:c.h-ma,offX:0,offZ:ml,offY:0};}
+
+function toggleTheme(){const d=document.documentElement;d.dataset.theme=d.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('ultralam_theme',d.dataset.theme);}catch(e){}updateSceneBg();}
+function updateSceneBg(){if(!scene)return;const s=getComputedStyle(document.documentElement);const bg=s.getPropertyValue('--vp-bg').trim();scene.background=new THREE.Color(bg);drawCont();drawBoxes();}
+try{const t=localStorage.getItem('ultralam_theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}
+
+// ===== PRESETS (veh\u00edculos editables) =====
+const DEFAULT_PR=[
+  {k:'caja53',n:"Caja Seca 53'",l:1615,w:250,h:270,p:25000},
+  {k:'caja48',n:"Caja Seca 48'",l:1463,w:250,h:270,p:24000},
+  {k:'trailer',n:'Trailer MX',l:1360,w:250,h:270,p:30000},
+  {k:'plataforma',n:'Plataforma',l:1220,w:250,h:260,p:28000},
+  {k:'rabon',n:'Rab\u00f3n (Torton)',l:750,w:245,h:240,p:15000},
+  {k:'cam35',n:'Camioneta 3.5t',l:400,w:200,h:180,p:3500},
+];
+let PR=[];
+function loadVehicles(){
+  try{const s=localStorage.getItem('ultralam_vehicles');PR=s?JSON.parse(s):DEFAULT_PR.slice();}catch(e){PR=DEFAULT_PR.slice();}
+  if(!PR.length)PR=DEFAULT_PR.slice();
+  syncVehiclesFromServer();
+}
+async function syncVehiclesFromServer(){
+  try{
+    const{data}=await sb.from('simulator_settings').select('value').eq('key','simulator_vehicles').single();
+    if(data?.value&&Array.isArray(data.value)&&data.value.length){
+      const sJson=JSON.stringify(data.value);
+      if(sJson!==JSON.stringify(PR)){
+        PR=data.value;
+        try{localStorage.setItem('ultralam_vehicles',sJson);}catch(e){}
+        try{renderPR();}catch(e){}
+        try{if(document.getElementById('vehTbody'))renderVehiclesTable();}catch(e){}
+      }
+    }
+  }catch(e){console.warn('[veh] sync failed:',e.message);}
+}
+function saveVehicles(){
+  try{localStorage.setItem('ultralam_vehicles',JSON.stringify(PR));}catch(e){}
+  sb.from('simulator_settings').upsert({key:'simulator_vehicles',value:PR,updated_at:new Date().toISOString()})
+    .then(({error})=>{if(error){console.warn('[veh] save failed:',error.message);showSaveError('vehículos',error.message);}else showSaveOk('Vehículos sincronizados');});
+}
+loadVehicles();
+function renderPR(){$('pgrid').innerHTML=PR.map(p=>`<div class="preset ${p.k===lastPK?'active':''}" onclick="selPR('${p.k}')"><div class="p-name">${p.n}</div><div class="p-dims">${p.l}&times;${p.w}&times;${p.h}</div><div class="p-cap">Max ${p.p.toLocaleString()} kg</div></div>`).join('')+`<div class="preset ${lastPK==='custom'?'active':''}" onclick="selPR('custom')"><div class="p-name">Personalizado</div><div class="p-dims">Tus medidas</div><div class="p-cap">&mdash;</div></div>`;}
+function selPR(k){lastPK=k;const p=PR.find(x=>x.k===k);document.querySelectorAll('.preset').forEach(e=>e.classList.remove('active'));event.currentTarget?.classList.add('active');if(p){$('cL').value=p.l;$('cW').value=p.w;$('cH').value=p.h;$('cP').value=p.p;$('cTp').value=p.n;$('brc').style.display='none';}else{$('cTp').value='Personalizado';$('brc').style.display='';}fullRebuild();}
+function rstPR(){selPR('trailer');}
+function onCC(){lastPK='custom';document.querySelectorAll('.preset').forEach(e=>e.classList.remove('active'));$('cTp').value='Personalizado';$('brc').style.display='';fullRebuild();}
+function gc(){return{l:+$('cL').value||1000,w:+$('cW').value||250,h:+$('cH').value||270,pm:+$('cP').value||30000};}
+
+function setTipo(t){prodTipo=t;$('tL').classList.toggle('active',t==='lamina');$('tC').classList.toggle('active',t==='caja');$('lAlt').textContent=t==='lamina'?'Espesor cm':'Alto cm';if(t==='lamina'){$('pH').value='1.8';$('pH').step='0.01';}else{$('pH').value='60';$('pH').step='0.1';}updPrev();}
+function updPrev(){const total=((+$('pQ').value||0)*(+$('pK').value||0));$('pTP').textContent=total.toFixed(2)+' kg';}
+['pQ','pK','pL','pW','pH'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',updPrev);});
+
+// ===== THREE.JS SCENE =====
+let scene,cam,ren,vpEl,gridHelper,cGrp,bGrp,oGrp,raycaster,mouse2;
+let isDrag=false,pm_={x:0,y:0},cA={t:Math.PI/4,p:Math.PI/5},cD=800,cTgt,hoveredIdx=-1;
+
+function initThree(){
+  vpEl=$('vport');
+  scene=new THREE.Scene();
+  cam=new THREE.PerspectiveCamera(45,1,0.5,30000);
+  cTgt=new THREE.Vector3();
+  ren=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true,logarithmicDepthBuffer:true});
+  ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.sortObjects=true;vpEl.appendChild(ren.domElement);
+  scene.add(new THREE.AmbientLight(0xffffff,.6));
+  const dl=new THREE.DirectionalLight(0xffffff,.7);dl.position.set(500,800,400);scene.add(dl);
+  const fl2=new THREE.DirectionalLight(0xffffff,.25);fl2.position.set(-300,300,-400);scene.add(fl2);
+  cGrp=new THREE.Group();scene.add(cGrp);
+  bGrp=new THREE.Group();scene.add(bGrp);
+  oGrp=new THREE.Group();scene.add(oGrp);
+  raycaster=new THREE.Raycaster();mouse2=new THREE.Vector2();
+  vpEl.addEventListener('mousemove',onMouseMove);
+  vpEl.addEventListener('mousedown',onMouseDown);
+  window.addEventListener('mouseup',()=>{isDrag=false;});
+  vpEl.addEventListener('wheel',e=>{e.preventDefault();cD=Math.max(100,Math.min(5000,cD+e.deltaY*.5));uCam();},{passive:false});
+  vpEl.addEventListener('touchstart',e=>{if(e.touches.length===1){isDrag=true;pm_={x:e.touches[0].clientX,y:e.touches[0].clientY};}});
+  vpEl.addEventListener('touchmove',e=>{if(!isDrag||e.touches.length!==1)return;const t=e.touches[0];cA.t-=(t.clientX-pm_.x)*.005;cA.p=Math.max(.1,Math.min(Math.PI/2-.05,cA.p-(t.clientY-pm_.y)*.005));pm_={x:t.clientX,y:t.clientY};uCam();});
+  vpEl.addEventListener('touchend',()=>{isDrag=false;});
+  window.addEventListener('keydown',onKeyDown);
+}
+function uCam(){cam.position.set(cTgt.x+cD*Math.sin(cA.p)*Math.sin(cA.t),cTgt.y+cD*Math.cos(cA.p),cTgt.z+cD*Math.sin(cA.p)*Math.cos(cA.t));cam.lookAt(cTgt);}
+function onMouseMove(e){
+  const r=vpEl.getBoundingClientRect();mouse2.x=((e.clientX-r.left)/r.width)*2-1;mouse2.y=-((e.clientY-r.top)/r.height)*2+1;
+  if(!isDrag&&mode!=='manual'){raycaster.setFromCamera(mouse2,cam);const hits=raycaster.intersectObjects(bGrp.children.filter(c=>c.isMesh&&c.userData.idx!==undefined));const tt=$('tooltip3d');if(hits.length>0){const idx=hits[0].object.userData.idx;if(idx!==hoveredIdx){hoveredIdx=idx;const p=placements[idx];tt.querySelector('.t-name').textContent=p.nombre+(p.tipo==='lamina'?' [Lam]':' [Caja]');tt.querySelector('.t-data').innerHTML=`${p.l}&times;${p.w}&times;${p.h} cm<br>Pos: (${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)})<br>Peso: ${(p.pesoUd||0).toFixed(2)} kg`;}tt.style.display='block';tt.style.left=Math.min(e.clientX-r.left+12,r.width-220)+'px';tt.style.top=(e.clientY-r.top-10)+'px';}else{hoveredIdx=-1;tt.style.display='none';}}
+  if(isDrag){cA.t-=(e.clientX-pm_.x)*.005;cA.p=Math.max(.1,Math.min(Math.PI/2-.05,cA.p-(e.clientY-pm_.y)*.005));pm_={x:e.clientX,y:e.clientY};uCam();$('tooltip3d').style.display='none';}
+}
+function onMouseDown(e){if(e.button===0){if(mode==='manual'){const rc=new THREE.Raycaster(),mv2=new THREE.Vector2(),r=vpEl.getBoundingClientRect();mv2.x=((e.clientX-r.left)/r.width)*2-1;mv2.y=-((e.clientY-r.top)/r.height)*2+1;rc.setFromCamera(mv2,cam);const hits=rc.intersectObjects(bGrp.children.filter(c=>c.isMesh&&c.userData.idx!==undefined));if(hits.length>0){selectBox(hits[0].object.userData.idx);return;}else deselBox();}isDrag=true;pm_={x:e.clientX,y:e.clientY};}}
+function onKeyDown(e){if(mode!=='manual'||selIdx<0)return;const m={ArrowLeft:[-1,0,0],ArrowRight:[1,0,0],ArrowUp:[0,0,-1],ArrowDown:[0,0,1],PageUp:[0,1,0],PageDown:[0,-1,0]};if(m[e.key]){mv(...m[e.key]);e.preventDefault();}if((e.key==='r'||e.key==='R')&&placements[selIdx]&&placements[selIdx].tipo==='caja')rotSel();}
+
+function makeGrid(){if(!scene)return;if(gridHelper)scene.remove(gridHelper);const s=getComputedStyle(document.documentElement);const gc_=s.getPropertyValue('--grid-c').trim();gridHelper=new THREE.GridHelper(4000,80,new THREE.Color(gc_),new THREE.Color(gc_));scene.add(gridHelper);}
+
+function drawCont(){
+  if(!cGrp)return;
+  while(cGrp.children.length)cGrp.remove(cGrp.children[0]);
+  const c=gc();const s=getComputedStyle(document.documentElement);const lineCol=new THREE.Color(s.getPropertyValue('--cont-line').trim());
+  const g=new THREE.BoxGeometry(c.l,c.h,c.w);
+  const edg=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:lineCol,transparent:true,opacity:.5}));
+  edg.position.set(c.l/2,c.h/2,c.w/2);cGrp.add(edg);
+  const fll=new THREE.Mesh(new THREE.PlaneGeometry(c.l,c.w),new THREE.MeshBasicMaterial({color:lineCol,transparent:true,opacity:.04,side:THREE.DoubleSide}));
+  fll.rotation.x=-Math.PI/2;fll.position.set(c.l/2,.05,c.w/2);cGrp.add(fll);
+  cTgt.set(c.l/2,c.h/3,c.w/2);cD=Math.max(c.l,c.w,c.h)*1.8;uCam();
+  $('layerSlider').max=c.h;$('layerSlider').value=c.h;$('layerVal').textContent=c.h+'cm';
+  makeGrid();
+}
+
+function drawBoxes(){
+  if(!bGrp)return;
+  while(bGrp.children.length)bGrp.remove(bGrp.children[0]);
+  while(oGrp.children.length)oGrp.remove(oGrp.children[0]);
+  const c=gc();const maxY=parseFloat($('layerSlider').value)||c.h;
+  const isDark=document.documentElement.dataset.theme==='dark';
+  placements.forEach((p,i)=>{
+    if(p.y>=maxY)return;
+    const g=new THREE.BoxGeometry(p.l,p.h,p.w);const col=new THREE.Color(p.color);const isSel=(mode==='manual'&&i===selIdx);
+    const mat=new THREE.MeshPhongMaterial({color:col,transparent:false,opacity:1,shininess:25,emissive:isSel?col:new THREE.Color(0),emissiveIntensity:isSel?.25:0});
+    const mesh=new THREE.Mesh(g,mat);
+    mesh.position.set(p.x+p.l/2,p.y+p.h/2,p.z+p.w/2);mesh.renderOrder=1;mesh.userData.idx=i;bGrp.add(mesh);
+    const edgeCol=isSel?0xffffff:(isDark?0x000000:0x333333);
+    const em=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:edgeCol,transparent:true,opacity:isSel?.7:.15}));
+    em.position.copy(mesh.position);em.renderOrder=2;bGrp.add(em);
+  });
+  overflow.forEach((p,i)=>{
+    const g=new THREE.BoxGeometry(p.l,p.h,p.w);const col=new THREE.Color(p.color);
+    const mat=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:.45,shininess:15});
+    const mesh=new THREE.Mesh(g,mat);
+    const gap=60;const ox=-(gap+(i%4)*(Math.max(p.l,50)+10));const oy=Math.floor(i/4)*(Math.max(p.h,50)+10);
+    mesh.position.set(ox-p.l/2,oy+p.h/2,c.w/2);oGrp.add(mesh);
+    const em=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:0xEB5757,transparent:true,opacity:.4}));
+    em.position.copy(mesh.position);oGrp.add(em);
+  });
+}
+
+// ===== COLLISION =====
+function collides(occ,x,y,z,l,w,h){for(const o of occ)if(x<o.x+o.l&&x+l>o.x&&y<o.y+o.h&&y+h>o.y&&z<o.z+o.w&&z+w>o.z)return true;return false;}
+function r2(n){return Math.round(n*100)/100;}
+
+// ===== PACKING =====
+function packLaminas(items,occ,ic,maxH,maxWt,curWt,zMin,zMax){
+  const zLo=zMin!==undefined?zMin:ic.offZ,zHi=zMax!==undefined?zMax:r2(ic.offZ+ic.w),zRange=r2(zHi-zLo);
+  const fromBack=SYS_CONFIG.loadFromBack!==false;
+  for(const it of items){
+    if(it._placed)continue;if(curWt+(it.pesoUd||0)>maxWt)continue;
+    let placed=false;
+    const rots=[{l:it.largo,w:it.ancho,h:it.alto},{l:it.ancho,w:it.largo,h:it.alto}];
+    for(const r of rots){
+      if(placed)break;if(r.l>ic.l+.01||r.w>zRange+.01||r.h>maxH)continue;
+      const zPositions=[];const zCenter=r2(zLo+(zRange-r.w)/2);zPositions.push(zCenter);
+      for(let d=1;d<20;d++){let added=false;const zL=r2(zCenter-d*r.w),zR=r2(zCenter+d*r.w);if(zL>=zLo){zPositions.push(zL);added=true;}if(r2(zR+r.w)<=zHi){zPositions.push(zR);added=true;}if(!added)break;}
+      const xStart=fromBack?r2(ic.offX+ic.l-r.l):ic.offX;
+      const xStep=fromBack?-r.l:r.l;
+      const xCond=fromBack?(x=>x>=ic.offX-0.01):(x=>r2(x+r.l)<=r2(ic.offX+ic.l));
+      for(let x=xStart;xCond(x)&&!placed;x=r2(x+xStep)){
+        for(const z of zPositions){if(placed)break;for(let y=0;r2(y+r.h)<=maxH&&!placed;y=r2(y+r.h)){if(!collides(occ,x,y,z,r.l,r.w,r.h)){placements.push({x,y,z,l:r.l,w:r.w,h:r.h,color:it.color,nombre:it.nombre,pesoUd:it.pesoUd,tipo:'lamina',prodId:it.id});occ.push({x,y,z,l:r.l,w:r.w,h:r.h});it._placed=true;placed=true;curWt+=(it.pesoUd||0);}}}
+      }
+      if(!placed){const sy=Math.max(.1,r.h),sx=Math.max(1,r.l/3),sz=Math.max(1,r.w/3);
+        const xS2=fromBack?r2(ic.offX+ic.l-r.l):ic.offX;
+        const xC2=fromBack?(x=>x>=ic.offX-0.01):(x=>r2(x+r.l)<=r2(ic.offX+ic.l));
+        const xD2=fromBack?-sx:sx;
+        for(let x=xS2;xC2(x)&&!placed;x=r2(x+xD2)){for(let z=zLo;r2(z+r.w)<=zHi&&!placed;z+=sz){for(let y=0;r2(y+r.h)<=maxH&&!placed;y=r2(y+sy)){if(!collides(occ,x,y,z,r.l,r.w,r.h)){placements.push({x,y,z,l:r.l,w:r.w,h:r.h,color:it.color,nombre:it.nombre,pesoUd:it.pesoUd,tipo:'lamina',prodId:it.id});occ.push({x,y,z,l:r.l,w:r.w,h:r.h,prodId:it.id});it._placed=true;placed=true;curWt+=(it.pesoUd||0);}}}}}
+    }
+  }
+  return curWt;
+}
+function packCajas(items,occ,ic,maxH,maxWt,curWt){
+  const x0=ic.offX,z0=ic.offZ,xMax=r2(ic.offX+ic.l),zMax=r2(ic.offZ+ic.w),centerZ=ic.offZ+ic.w/2;
+  for(const it of items){
+    if(it._placed)continue;if(curWt+(it.pesoUd||0)>maxWt)continue;
+    let eps=[];const stepX=Math.max(10,Math.min(it.largo,it.ancho,it.alto));
+    for(let gx=x0;gx<xMax;gx+=stepX)for(let gz=z0;gz<zMax;gz+=stepX)eps.push({x:r2(gx),y:0,z:r2(gz)});
+    occ.forEach(o=>{const nx=r2(o.x+o.l),ny=r2(o.y+o.h),nz=r2(o.z+o.w);if(nx<xMax)eps.push({x:nx,y:o.y,z:o.z});if(ny<maxH)eps.push({x:o.x,y:ny,z:o.z});if(nz<zMax)eps.push({x:o.x,y:o.y,z:nz});});
+    eps=eps.filter(e=>e.x>=x0&&e.x<xMax&&e.y>=0&&e.y<maxH&&e.z>=z0&&e.z<zMax);
+    const seen=new Set();eps=eps.filter(e=>{const k=e.x+','+e.y+','+e.z;if(seen.has(k))return false;seen.add(k);return true;});
+    const dims=[it.largo,it.ancho,it.alto];const rotSeen=new Set();const rots=[];
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++){if(i===j)continue;const k=3-i-j;const key=dims[i]+','+dims[j]+','+dims[k];if(!rotSeen.has(key)){rotSeen.add(key);rots.push({l:dims[i],w:dims[j],h:dims[k]});}}
+    let bestP=null,bestS=Infinity;const fromBack=SYS_CONFIG.loadFromBack!==false;
+    for(const ep of eps)for(const r of rots){if(r2(ep.x+r.l)>xMax||r2(ep.y+r.h)>maxH||r2(ep.z+r.w)>zMax)continue;if(collides(occ,ep.x,ep.y,ep.z,r.l,r.w,r.h))continue;const distZ=Math.abs((ep.z+r.w/2)-centerZ);const xPref=fromBack?(xMax-(ep.x+r.l)):ep.x;const sc=ep.y*10000+xPref*10+distZ;if(sc<bestS){bestS=sc;bestP={x:ep.x,y:ep.y,z:ep.z,l:r.l,w:r.w,h:r.h};}}
+    if(bestP){placements.push({...bestP,color:it.color,nombre:it.nombre,pesoUd:it.pesoUd,tipo:'caja',prodId:it.id});occ.push({x:bestP.x,y:bestP.y,z:bestP.z,l:bestP.l,w:bestP.w,h:bestP.h});it._placed=true;curWt+=(it.pesoUd||0);}
+  }
+  return curWt;
+}
+function packAllProducts(){
+  const c=gc();const ic=getInternal(c);placements=[];overflow=[];const occ=[];const maxH=ic.h,maxWt=c.pm;let curWt=0;
+  const lamItems=[],cajItems=[];
+  products.forEach(p=>{for(let i=0;i<p.cantidad;i++){if(p.tipo==='lamina')lamItems.push({...p,_placed:false});else cajItems.push({...p,_placed:false});}});
+  lamItems.sort((a,b)=>(b.largo*b.ancho)-(a.largo*a.ancho));cajItems.sort((a,b)=>(b.largo*b.ancho*b.alto)-(a.largo*a.ancho*a.alto));
+  const isMixed=lamItems.length>0&&cajItems.length>0;
+  if(isMixed){const lamZWidths=lamItems.map(it=>Math.min(it.largo,it.ancho));const maxLamW=Math.max(...lamZWidths);const numCols=Math.max(1,Math.floor(ic.w/maxLamW));const centerW=r2(numCols*maxLamW);const zStart=r2(ic.offZ+(ic.w-centerW)/2);const zEnd=r2(zStart+centerW);curWt=packLaminas(lamItems,occ,ic,maxH,maxWt,curWt,zStart,zEnd);curWt=packCajas(cajItems,occ,ic,maxH,maxWt,curWt);curWt=packLaminas(lamItems,occ,ic,maxH,maxWt,curWt);}
+  else{curWt=packLaminas(lamItems,occ,ic,maxH,maxWt,curWt);curWt=packCajas(cajItems,occ,ic,maxH,maxWt,curWt);}
+  [...lamItems,...cajItems].filter(i=>!i._placed).forEach(i=>{overflow.push({l:i.largo,w:i.ancho,h:i.alto,color:i.color,nombre:i.nombre,pesoUd:i.pesoUd,tipo:i.tipo,prodId:i.id});});
+}
+
+function metrics(){
+  const c=gc(),ic=getInternal(c);const vC=(ic.l*ic.w*ic.h)/1e6;const vU=placements.reduce((s,p)=>s+(p.l*p.w*p.h),0)/1e6;const pct=vC>0?vU/vC*100:0;const kgT=placements.reduce((s,p)=>s+(p.pesoUd||0),0);const wanted=products.reduce((s,p)=>s+p.cantidad,0),noFit=wanted-placements.length;
+  $('vU').textContent=vU.toFixed(3);$('vT').textContent=vC.toFixed(2);$('hmPz').textContent=placements.length+'/'+wanted;$('hmKg').textContent=kgT.toFixed(0)+' / '+c.pm.toLocaleString()+' kg';$('hmVol').textContent=vU.toFixed(2)+' / '+vC.toFixed(2)+' m\u00b3';
+  $('oPz').textContent=placements.length;$('oNo').textContent=noFit;$('oKg').textContent=kgT.toFixed(0)+' kg';$('oKg').style.color=kgT>c.pm?'var(--r)':'var(--w)';$('oVol').textContent=vU.toFixed(2)+' / '+vC.toFixed(2);
+  const bar=$('eBar'),lbl=$('eLbl');bar.style.width=Math.min(100,pct)+'%';lbl.textContent=pct.toFixed(1)+'%';bar.style.background=pct<50?'var(--r)':pct<75?'var(--w)':'var(--g)';
+  if(kgT>c.pm){$('hmAlert').style.display='';$('hmAlert').textContent='SOBREPESO';}else if(noFit>0){$('hmAlert').style.display='';$('hmAlert').textContent=noFit+' sin espacio';}else $('hmAlert').style.display='none';
+  doAlerts(noFit,kgT,pct);updateWeightDist();
+}
+function updateWeightDist(){const c=gc();if(!placements.length){$('wdF').textContent='0 kg';$('wdC').textContent='0 kg';$('wdB').textContent='0 kg';$('wDist').innerHTML='<div style="width:33%;background:var(--g)"></div><div style="width:34%;background:var(--g)"></div><div style="width:33%;background:var(--g)"></div>';return;}const third=c.l/3;let wF=0,wC=0,wB=0;placements.forEach(p=>{const cx=p.x+p.l/2;if(cx<third)wF+=p.pesoUd||0;else if(cx<2*third)wC+=p.pesoUd||0;else wB+=p.pesoUd||0;});const total=wF+wC+wB||1;const pF=wF/total*100,pC=wC/total*100,pB=wB/total*100;const colorFor=pct=>pct>50?'var(--r)':pct>40?'var(--w)':'var(--g)';$('wDist').innerHTML=`<div style="width:${pF}%;background:${colorFor(pF)}"></div><div style="width:${pC}%;background:${colorFor(pC)}"></div><div style="width:${pB}%;background:${colorFor(pB)}"></div>`;$('wdF').textContent=wF.toFixed(0)+' kg';$('wdC').textContent=wC.toFixed(0)+' kg';$('wdB').textContent=wB.toFixed(0)+' kg';}
+function doAlerts(nf,kg,pct){const c=gc();if(kg===undefined)kg=placements.reduce((s,p)=>s+(p.pesoUd||0),0);if(nf===undefined)nf=products.reduce((s,p)=>s+p.cantidad,0)-placements.length;let h='';if(kg>c.pm)h+=`<div class="alert alert-error">&#9888; <b>Sobrepeso:</b> ${kg.toFixed(0)} / ${c.pm.toLocaleString()} kg. Exceso: ${(kg-c.pm).toFixed(0)} kg</div>`;if(nf>0)h+=`<div class="alert alert-error">&#128721; <b>${nf}</b> pieza${nf>1?'s':''} no cupieron.</div>`;if(!products.length)h+=`<div class="alert alert-info">Agrega productos para comenzar.</div>`;else if(nf===0&&kg<=c.pm)h+=`<div class="alert alert-ok">&#10003; Carga viable</div>`;$('alP').innerHTML=h||'<div class="alert alert-ok">&#10003; OK</div>';}
+
+function onLayerChange(v){$('layerVal').textContent=Math.round(v)+'cm';$('layerCtrl').style.display='';drawBoxes();}
+
+function doOptimal(){mode='optimal';$('mBdg').style.borderColor='var(--g)';$('mBdg').style.color='var(--g)';$('mBdg').innerHTML='&#9733; Ideal';$('manH').style.display='none';selIdx=-1;$('selP').style.display='none';packAllProducts();drawBoxes();metrics();}
+function setManual(){mode='manual';$('mBdg').style.borderColor='var(--pp)';$('mBdg').style.color='var(--pp)';$('mBdg').innerHTML='&#9997; Manual';$('manH').style.display='';$('ovH').textContent='Clic en pieza para seleccionar';drawBoxes();}
+function redistConfirm(){if(!products.length)return;if(!confirm('¿Redistribuir todo?'))return;packAllProducts();drawBoxes();metrics();}
+function selectBox(i){selIdx=i;$('selP').style.display='';undoStack=[];const p=placements[i];$('btnRot').style.display=p.tipo==='caja'?'':'none';refreshSel();drawBoxes();}
+function deselBox(){selIdx=-1;$('selP').style.display='none';drawBoxes();}
+function refreshSel(){if(selIdx<0)return;const p=placements[selIdx];$('selI').innerHTML=`<b>${p.nombre}</b> [${p.tipo==='lamina'?'Lam':'Caja'}]<br>${p.l}&times;${p.w}&times;${p.h} cm | Pos: (${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}) | ${(p.pesoUd||0).toFixed(2)} kg`;}
+function mv(dx,dy,dz){if(selIdx<0||!placements[selIdx])return;const p=placements[selIdx],c=gc();const step=p.tipo==='lamina'?Math.max(1,p.h):5;const nx=r2(p.x+dx*5),ny=r2(p.y+dy*step),nz=r2(p.z+dz*5);if(nx<0||ny<0||nz<0||r2(nx+p.l)>c.l||r2(ny+p.h)>c.h||r2(nz+p.w)>c.w)return;const occ=placements.filter((_,j)=>j!==selIdx);if(collides(occ,nx,ny,nz,p.l,p.w,p.h))return;undoStack.push({x:p.x,y:p.y,z:p.z,l:p.l,w:p.w,h:p.h});p.x=nx;p.y=ny;p.z=nz;refreshSel();drawBoxes();}
+function rotSel(){if(selIdx<0||!placements[selIdx]||placements[selIdx].tipo==='lamina')return;const p=placements[selIdx],c=gc();const nl=p.w,nw=p.l;if(r2(p.x+nl)>c.l||r2(p.z+nw)>c.w)return;const occ=placements.filter((_,j)=>j!==selIdx);if(collides(occ,p.x,p.y,p.z,nl,nw,p.h))return;undoStack.push({x:p.x,y:p.y,z:p.z,l:p.l,w:p.w,h:p.h});p.l=nl;p.w=nw;refreshSel();drawBoxes();}
+function undo(){if(selIdx<0||!undoStack.length)return;const u=undoStack.pop(),p=placements[selIdx];p.x=u.x;p.y=u.y;p.z=u.z;p.l=u.l;p.w=u.w;p.h=u.h;refreshSel();drawBoxes();}
+
+function addProd(){
+  const nombre=$('pN').value||'Producto';
+  const largo=parseFloat($('pL').value)||100,ancho=parseFloat($('pW').value)||50,alto=parseFloat($('pH').value)||1.8;
+  const cantidad=parseInt($('pQ').value)||1,pesoUd=parseFloat($('pK').value)||0;
+  const prod={id:++idC,nombre,largo,ancho,alto,cantidad,pesoUd,color:selColor,tipo:prodTipo};
+  products.push(prod);selColor=COLORS[(COLORS.indexOf(selColor)+1)%COLORS.length];renderCP();
+  packAllProducts();drawBoxes();metrics();renderPL();
+}
+function remProd(id){products=products.filter(p=>p.id!==id);packAllProducts();drawBoxes();metrics();selIdx=-1;$('selP').style.display='none';renderPL();}
+function incQty(id){const p=products.find(p=>p.id===id);if(!p)return;p.cantidad++;packAllProducts();drawBoxes();metrics();renderPL();}
+function decQty(id){const p=products.find(p=>p.id===id);if(!p)return;if(p.cantidad<=1){remProd(id);return;}p.cantidad--;packAllProducts();drawBoxes();metrics();renderPL();}
+function clearAll(){products=[];placements=[];overflow=[];selIdx=-1;$('selP').style.display='none';renderPL();drawBoxes();metrics();}
+function renderPL(){
+  $('pCt').textContent=products.length;
+  if(!products.length){$('pList').innerHTML='<p style="font-size:10px;color:var(--tx3);text-align:center;padding:12px">Sin productos</p>';return;}
+  $('pList').innerHTML=products.map(p=>{const kT=p.pesoUd*p.cantidad;return`<div class="prod-item"><div class="prod-color" style="background:${p.color}"></div><div class="prod-info"><div class="prod-name">${p.nombre} <span style="color:var(--tx3);font-size:8px">[${p.tipo==='lamina'?'Lam':'Caja'}]</span></div><div class="prod-dims">${p.largo}&times;${p.ancho}&times;${p.alto}cm</div><div class="prod-dims" style="color:var(--w)">${p.pesoUd}kg/ud = <b>${kT.toFixed(2)}kg</b></div></div><div style="display:flex;align-items:center;gap:2px"><button class="btn btn-ghost" style="padding:2px 7px;font-size:11px;font-weight:700" onclick="event.stopPropagation();decQty(${p.id})" title="Restar">&#8722;</button><span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--ac);min-width:22px;text-align:center;font-size:11px">${p.cantidad}</span><button class="btn btn-ghost" style="padding:2px 7px;font-size:11px;font-weight:700" onclick="event.stopPropagation();incQty(${p.id})" title="Sumar">&#43;</button><button class="btn-danger" style="margin-left:4px" onclick="event.stopPropagation();remProd(${p.id})">&#10005;</button></div></div>`;}).join('');
+}
+
+function renderCP(){$('cpk').innerHTML=COLORS.map(c=>`<div class="color-dot ${c===selColor?'active':''}" style="background:${c}" onclick="pickC('${c}')"></div>`).join('');}
+function pickC(c){selColor=c;renderCP();}
+
+function parseCSV(t){const L=[];let row=[],cell='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'&&t[i+1]==='"'){cell+='"';i++;}else if(c==='"')q=false;else cell+=c;}else{if(c==='"')q=true;else if(c===','){row.push(cell.trim());cell='';}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cell.trim());if(row.some(x=>x))L.push(row);row=[];cell='';}else cell+=c;}}row.push(cell.trim());if(row.some(x=>x))L.push(row);return L;}
+
+function expCSV(){
+  if(!products.length){alert('Sin productos.');return;}
+  let csv='Producto,Tipo,Largo_cm,Ancho_cm,Alto_cm,Cantidad,Peso_Ud_kg,Peso_Total_kg,Color\n';
+  products.forEach(p=>{csv+=`"${p.nombre}",${p.tipo},${p.largo},${p.ancho},${p.alto},${p.cantidad},${p.pesoUd},${(p.pesoUd*p.cantidad).toFixed(2)},${p.color}\n`;});
+  const c=gc(),ic=getInternal(c),kgT=placements.reduce((s,p)=>s+(p.pesoUd||0),0);
+  const vC=(ic.l*ic.w*ic.h)/1e6,vU=placements.reduce((s,p)=>s+(p.l*p.w*p.h),0)/1e6;const wanted=products.reduce((s,p)=>s+p.cantidad,0);
+  csv+=`\nResumen\nContenedor,"${$('cTp').value}",${c.l}x${c.w}x${c.h}cm\nUsuario,"${currentUser?currentUser.name:''}"\nPiezas,${placements.length}/${wanted}\nVolumen,${vU.toFixed(3)} / ${vC.toFixed(2)} m3\nPeso,${kgT.toFixed(0)} / ${c.pm.toLocaleString()} kg\n`;
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Carga_${currentUser?currentUser.name.replace(/\s/g,'_')+'_':''}${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+async function captureView(theta,phi,dist){const c=gc();cA={t:theta,p:phi};cD=dist||Math.max(c.l,c.w,c.h)*1.6;cTgt.set(c.l/2,c.h/3,c.w/2);uCam();await new Promise(r=>setTimeout(r,150));return ren.domElement.toDataURL('image/png');}
+async function captureViewWhite(theta,phi,dist){
+  const d=document.documentElement,prevTheme=d.dataset.theme;
+  d.dataset.theme='light';updateSceneBg();
+  await new Promise(r=>setTimeout(r,80));
+  const img=await captureView(theta,phi,dist);
+  d.dataset.theme=prevTheme||'dark';updateSceneBg();
+  return img;
+}
+
+async function expPDF(){
+  const{jsPDF}=window.jspdf;const doc=new jsPDF('landscape','mm','a4');
+  const c=gc(),ic=getInternal(c),user=currentUser?currentUser.name:'',kgT=placements.reduce((s,p)=>s+(p.pesoUd||0),0);
+  const vC=(ic.l*ic.w*ic.h)/1e6,vU=placements.reduce((s,p)=>s+(p.l*p.w*p.h),0)/1e6;
+  const wanted=products.reduce((s,p)=>s+p.cantidad,0);
+  const iso=await captureViewWhite(Math.PI/5,Math.PI/5.5);const front=await captureViewWhite(0,Math.PI/2-.05,Math.max(c.l,c.w,c.h)*1.4);const side=await captureViewWhite(Math.PI/2,Math.PI/2-.05,Math.max(c.l,c.w,c.h)*1.4);const top=await captureViewWhite(Math.PI/4,0.05,Math.max(c.l,c.w,c.h)*1.8);
+  doc.setFillColor(255,255,255);doc.rect(0,0,297,210,'F');
+  doc.setTextColor(82,156,202);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text((SYS_CONFIG.name||'ULTRALAM').split('—')[0].trim().toUpperCase(),10,12);
+  doc.setTextColor(40,40,40);doc.setFontSize(11);doc.text('Reporte de Carga 3D',55,12);
+  doc.setFontSize(8);doc.setTextColor(120,120,120);doc.text(`${new Date().toLocaleDateString('es-MX')} | ${user}`,10,18);
+  doc.setFillColor(245,245,245);doc.roundedRect(10,22,135,22,2,2,'F');
+  doc.setTextColor(82,156,202);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text($('cTp').value,14,29);
+  doc.setTextColor(60,60,60);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text(`${c.l}x${c.w}x${c.h}cm (util: ${ic.l}x${ic.w}x${ic.h}cm) | Max ${c.pm.toLocaleString()}kg`,14,36);
+  doc.setFillColor(245,245,245);doc.roundedRect(150,22,137,22,2,2,'F');
+  doc.setTextColor(77,171,154);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(`Vol: ${vU.toFixed(2)}/${vC.toFixed(2)} m\u00b3`,154,29);
+  doc.setTextColor(60,60,60);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text(`${placements.length}/${wanted} pzs | ${kgT.toFixed(0)}/${c.pm.toLocaleString()}kg`,154,36);
+  try{doc.addImage(iso,'PNG',10,48,175,110);}catch(e){}
+  let y=52;const xT=190;doc.setTextColor(120,120,120);doc.setFontSize(7);doc.setFont('helvetica','bold');
+  ['PRODUCTO','TIPO','MEDIDAS','CANT','KG/UD','KG TOT'].forEach((h,i)=>doc.text(h,xT+[0,28,42,70,80,93][i],y));y+=5;
+  doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+  products.forEach(p=>{if(y>200){doc.addPage();doc.setFillColor(255,255,255);doc.rect(0,0,297,210,'F');y=15;}doc.text(p.nombre.substring(0,14),xT,y);doc.text(p.tipo==='lamina'?'Lam':'Caja',xT+28,y);doc.text(`${p.largo}x${p.ancho}x${p.alto}`,xT+42,y);doc.text(''+p.cantidad,xT+70,y);doc.text(p.pesoUd.toFixed(1),xT+80,y);doc.text((p.pesoUd*p.cantidad).toFixed(1),xT+93,y);y+=5;});
+  doc.addPage();doc.setFillColor(255,255,255);doc.rect(0,0,297,210,'F');doc.setTextColor(82,156,202);doc.setFontSize(12);doc.setFont('helvetica','bold');doc.text('Vistas M\u00faltiples',10,12);
+  [{img:front,label:'FRONTAL',x:10,y:18,w:135,h:85},{img:side,label:'LATERAL',x:152,y:18,w:135,h:85},{img:top,label:'SUPERIOR',x:10,y:110,w:135,h:85},{img:iso,label:'PERSPECTIVA',x:152,y:110,w:135,h:85}].forEach(v=>{try{doc.addImage(v.img,'PNG',v.x+2,v.y+2,v.w-4,v.h-4);}catch(e){}doc.setTextColor(120,120,120);doc.setFontSize(7);doc.text(v.label,v.x+3,v.y+v.h+5);});
+  const fname=`Carga_${(currentUser?currentUser.name.replace(/\s/g,'_')+'_':'')}${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(fname);rstCam();
+}
+
+function doPrint(){const c=gc(),ic=getInternal(c),kgT=placements.reduce((s,p)=>s+(p.pesoUd||0),0);const vC=(ic.l*ic.w*ic.h)/1e6,vU=placements.reduce((s,p)=>s+(p.l*p.w*p.h),0)/1e6;const wanted=products.reduce((s,p)=>s+p.cantidad,0);
+$('prMeta').innerHTML=`<p><b>Fecha:</b> ${new Date().toLocaleDateString('es-MX')} | <b>Usuario:</b> ${currentUser?currentUser.name:''}</p><p><b>Contenedor:</b> ${$('cTp').value} ${c.l}&times;${c.w}&times;${c.h}cm | Max ${c.pm.toLocaleString()}kg</p>`;
+try{$('prImg').innerHTML=`<img src="${ren.domElement.toDataURL('image/png')}" style="max-width:100%;border:1px solid #ccc">`;}catch(e){}
+$('prBody').innerHTML=products.map(p=>`<tr><td>${p.nombre}</td><td>${p.tipo==='lamina'?'Lamina':'Caja'}</td><td>${p.largo}&times;${p.ancho}&times;${p.alto}</td><td>${p.cantidad}</td><td>${p.pesoUd.toFixed(2)}</td><td>${(p.pesoUd*p.cantidad).toFixed(2)}</td></tr>`).join('');
+$('prSum').innerHTML=`<b>Piezas:</b> ${placements.length}/${wanted} | <b>Vol:</b> ${vU.toFixed(3)}/${vC.toFixed(2)}m\u00b3 | <b>Peso:</b> ${kgT.toFixed(0)}/${c.pm.toLocaleString()}kg`;window.print();}
+
+// ===== HISTORY (per user, in localStorage folder) =====
+function getHistoryKey(){return 'ultralam_history_'+(currentUser?currentUser.email.replace(/[^a-zA-Z0-9]/g,'_'):'guest');}
+function saveHistory(){
+  if(!products.length){alert('Sin productos.');return;}
+  try{const k=getHistoryKey();const h=JSON.parse(localStorage.getItem(k)||'[]');
+  h.unshift({date:new Date().toISOString(),container:{l:+$('cL').value,w:+$('cW').value,h:+$('cH').value,pm:+$('cP').value,type:$('cTp').value,preset:lastPK},products:products.map(p=>({...p})),user:currentUser?currentUser.name:'',stats:{placed:placements.length,wanted:products.reduce((s,p)=>s+p.cantidad,0)}});
+  if(h.length>30)h.length=30;localStorage.setItem(k,JSON.stringify(h));
+  appendLog({type:'save',email:currentUser?currentUser.email:'',ts:new Date().toISOString()});
+  renderHistory();}catch(e){alert('No se pudo guardar.');}
+}
+function loadHistoryEntry(idx){try{const h=JSON.parse(localStorage.getItem(getHistoryKey())||'[]');const e=h[idx];if(!e||!confirm('¿Cargar esta configuración?'))return;$('cL').value=e.container.l;$('cW').value=e.container.w;$('cH').value=e.container.h;$('cP').value=e.container.pm;$('cTp').value=e.container.type;if(e.container.preset)lastPK=e.container.preset;products=e.products.map(p=>({...p}));idC=Math.max(idC,...products.map(p=>p.id||0))+1;fullRebuild();renderPL();}catch(e){}}
+function deleteHistoryEntry(idx){try{const k=getHistoryKey();const h=JSON.parse(localStorage.getItem(k)||'[]');h.splice(idx,1);localStorage.setItem(k,JSON.stringify(h));renderHistory();}catch(e){}}
+function renderHistory(){const el=$('histList');if(!el)return;try{const h=JSON.parse(localStorage.getItem(getHistoryKey())||'[]');if(!h.length){el.innerHTML='';return;}el.innerHTML=h.map((e,i)=>{const d=new Date(e.date);const ds=d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});return`<div class="hist-item" onclick="loadHistoryEntry(${i})"><div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="font-weight:600">${e.container.type}</span> <span style="color:var(--tx3);font-size:9px">${e.stats.placed}/${e.stats.wanted}</span><br><span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3)">${ds}</span></div><button class="btn-danger" onclick="event.stopPropagation();deleteHistoryEntry(${i})" style="font-size:8px">&#10005;</button></div>`;}).join('');}catch(e){el.innerHTML='';}}
+
+function fullRebuild(){drawCont();if(products.length){packAllProducts();drawBoxes();metrics();}else{drawBoxes();metrics();}}
+function rstCam(){if(!cTgt)return;const c=gc();cA={t:Math.PI/4,p:Math.PI/5};cD=Math.max(c.l,c.w,c.h)*1.8;cTgt.set(c.l/2,c.h/3,c.w/2);uCam();}
+function onResize(){if(!ren||!vpEl)return;const r=vpEl.getBoundingClientRect();cam.aspect=r.width/r.height;cam.updateProjectionMatrix();ren.setSize(r.width,r.height);}
+window.addEventListener('resize',onResize);
+function anim(){requestAnimationFrame(anim);if(ren&&scene&&cam)ren.render(scene,cam);}
+
+// ===== DRAG-DROP for admin zones =====
+function setupAdminDragDrop(){
+  const udz=$('usersDropZone');if(udz){udz.addEventListener('dragover',e=>{e.preventDefault();udz.classList.add('drag');});udz.addEventListener('dragleave',()=>udz.classList.remove('drag'));udz.addEventListener('drop',e=>{e.preventDefault();udz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)importUsersCSV({target:{files:e.dataTransfer.files,value:''}});});}
+  const pdz=$('prodDropZone');if(pdz){pdz.addEventListener('dragover',e=>{e.preventDefault();pdz.classList.add('drag');});pdz.addEventListener('dragleave',()=>pdz.classList.remove('drag'));pdz.addEventListener('drop',e=>{e.preventDefault();pdz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)importProductsCSV({target:{files:e.dataTransfer.files,value:''}});});}
+}
+
+// ===== INIT =====
+loadSysConfig();
+applyBranding();
+initThree();
+setupAdminDragDrop();
+
+// ===== EMBED MODE (cuando se carga desde el Portal Ultralam) =====
+// Si la URL tiene ?embed=1, se omite la autenticación local del simulador
+// y se usa el email pasado por el Portal (ya autenticado vía OTP en /login).
+const _embedParams = new URLSearchParams(window.location.search);
+const _isEmbed = _embedParams.get('embed') === '1';
+const _embedEmail = _embedParams.get('email') || '';
+const _embedAdmin = _embedParams.get('admin') === '1';
+const _embedTheme = _embedParams.get('theme'); // 'dark' | 'light'
+
+if (_embedTheme === 'light' || _embedTheme === 'dark') {
+  document.documentElement.setAttribute('data-theme', _embedTheme);
+}
+
+// El padre del iframe puede cambiar el tema mediante postMessage
+window.addEventListener('message', (e) => {
+  const d = e.data || {};
+  if (d.type === 'ul-theme' && (d.theme === 'dark' || d.theme === 'light')) {
+    document.documentElement.setAttribute('data-theme', d.theme);
+  }
+});
+
+if (_isEmbed) {
+  // signOut: no recargar dentro del iframe; pedirle al padre
+  window.signOut = function() {
+    try { window.parent.postMessage({ type: 'ul-logout' }, '*'); } catch(e) {}
+  };
+  window.goToPortal = function() {
+    try { window.parent.postMessage({ type: 'ul-go-portal' }, '*'); } catch(e) {}
+  };
+}
+
+if (_isEmbed && _embedEmail) {
+  // Modo embebido: saltar OTP. Llamar a onUserLogin con un user "mock"
+  // basado en lo que el Portal ya verificó.
+  const mockUser = {
+    id: 'portal-' + _embedEmail,
+    email: _embedEmail,
+    _portalAdmin: _embedAdmin,
+  };
+  window.onUserLogin = async function(u) {
+    _loginDone = false;
+    currentUser = {
+      id: u.id,
+      email: u.email,
+      isAdmin: !!u._portalAdmin,
+      name: (u.email || '').split('@')[0],
+    };
+    try { appendLog({type:'login', email:u.email, ts:new Date().toISOString()}); } catch(e) {}
+    $('authScreen').style.display = 'none';
+    if (currentUser.isAdmin) { showAdminPanel(); } else { showMainApp(); }
+    _loginDone = true;
+  };
+  // Disparar login mock al final del frame
+  setTimeout(() => window.onUserLogin(mockUser), 0);
+} else {
+  // Modo standalone: comportamiento original (Supabase OTP propio del simulador)
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+      await onUserLogin(session.user);
+    } else {
+      currentUser = null;
+      $('adminPanel').style.display = 'none';
+      $('mainApp').style.display = 'none';
+      $('authScreen').style.display = 'flex';
+    }
+  });
+
+  sb.auth.getSession().then(({data:{session}}) => {
+    if (!session) {
+      $('authScreen').style.display = 'flex';
+      $('adminPanel').style.display = 'none';
+      $('mainApp').style.display = 'none';
+    }
+  });
+}
+</script>
+</body>
+</html>
