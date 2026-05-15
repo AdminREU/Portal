@@ -1426,6 +1426,15 @@ const _isEmbed = _embedParams.get('embed') === '1';
 const _embedEmail = _embedParams.get('email') || '';
 const _embedAdmin = _embedParams.get('admin') === '1';
 const _embedTheme = _embedParams.get('theme'); // 'dark' | 'light'
+// Token JWT del Portal para autenticar contra las APIs /api/simulador/*
+let _embedToken = _embedParams.get('token') || '';
+// El token también puede pasarse por postMessage (más seguro que URL)
+window.addEventListener('message', (e) => {
+  const d = e.data || {};
+  if (d.type === 'ul-token' && typeof d.token === 'string') {
+    _embedToken = d.token;
+  }
+});
 
 if (_embedTheme === 'light' || _embedTheme === 'dark') {
   document.documentElement.setAttribute('data-theme', _embedTheme);
@@ -1446,6 +1455,86 @@ if (_isEmbed) {
   };
   window.goToPortal = function() {
     try { window.parent.postMessage({ type: 'ul-go-portal' }, '*'); } catch(e) {}
+  };
+}
+
+// ===== SHIM: redirigir sb.from('simulator_settings') y sb.from('profiles')
+// hacia las APIs del Portal cuando estamos en embed mode. Así el simulador
+// puede correr sin tocar el Supabase del simulador — todos los datos van
+// al Supabase del Portal unificado.
+if (_isEmbed) {
+  async function _portalApi(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (_embedToken) headers['Authorization'] = `Bearer ${_embedToken}`;
+    const r = await fetch(`/api${path}`, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+    return r.json();
+  }
+
+  function _makeSettingsThenable() {
+    const ctx = { action: null, key: null, value: null, upsertObj: null };
+    const builder = {
+      select(_cols) { ctx.action = ctx.action || 'select'; return builder; },
+      upsert(obj) { ctx.action = 'upsert'; ctx.upsertObj = obj; return builder; },
+      eq(col, val) { if (col === 'key') ctx.key = val; return builder; },
+      order() { return builder; },
+      async single() {
+        if (!ctx.key) return { data: null, error: { message: 'key requerida' } };
+        const r = await _portalApi(`/simulador/settings?key=${encodeURIComponent(ctx.key)}`);
+        if (!r.ok) return { data: null, error: { message: r.error } };
+        return { data: r.setting ? { value: r.setting.value } : null, error: r.setting ? null : { message: 'no encontrado' } };
+      },
+      maybeSingle() { return builder.single().then(({ data, error }) => ({ data, error: error && error.message === 'no encontrado' ? null : error })); },
+      then(resolve, reject) {
+        if (ctx.action === 'upsert' && ctx.upsertObj) {
+          return _portalApi('/simulador/settings', { method: 'POST', body: JSON.stringify({ key: ctx.upsertObj.key, value: ctx.upsertObj.value }) })
+            .then(r => resolve({ data: null, error: r.ok ? null : { message: r.error } }), reject);
+        }
+        // SELECT sin .single(): devolver array
+        return _portalApi('/simulador/settings').then(r => {
+          resolve({ data: r.settings || [], error: r.ok ? null : { message: r.error } });
+        }, reject);
+      },
+    };
+    return builder;
+  }
+
+  function _makeProfilesThenable() {
+    const ctx = { action: 'select', id: null, updateObj: null, upsertObj: null };
+    const builder = {
+      select(_cols) { ctx.action = 'select'; return builder; },
+      upsert(obj) { ctx.action = 'upsert'; ctx.upsertObj = obj; return builder; },
+      update(obj) { ctx.action = 'update'; ctx.updateObj = obj; return builder; },
+      eq(col, val) { if (col === 'id') ctx.id = val; return builder; },
+      order() { return builder; },
+      maybeSingle() {
+        // onUserLogin original llama a profiles.select.eq.maybeSingle, pero en embed
+        // mode ya lo bypaseamos. Devolver null para que tome defaults.
+        return Promise.resolve({ data: null, error: null });
+      },
+      single() { return builder.maybeSingle(); },
+      then(resolve, reject) {
+        if (ctx.action === 'update' && ctx.updateObj && ctx.id) {
+          return _portalApi('/simulador/users', { method: 'PATCH', body: JSON.stringify({ id: ctx.id, role: ctx.updateObj.role }) })
+            .then(r => resolve({ data: null, error: r.ok ? null : { message: r.error } }), reject);
+        }
+        if (ctx.action === 'upsert') {
+          // No hay endpoint específico de upsert profile; devolvemos OK silencioso
+          return Promise.resolve({ data: null, error: null }).then(resolve);
+        }
+        // SELECT — listar usuarios (panel admin del simulador)
+        return _portalApi('/simulador/users').then(r => {
+          resolve({ data: r.profiles || [], error: r.ok ? null : { message: r.error } });
+        }, reject);
+      },
+    };
+    return builder;
+  }
+
+  const _origFrom = sb.from.bind(sb);
+  sb.from = function (table) {
+    if (table === 'simulator_settings') return _makeSettingsThenable();
+    if (table === 'profiles') return _makeProfilesThenable();
+    return _origFrom(table);
   };
 }
 

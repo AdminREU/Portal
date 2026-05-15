@@ -43,6 +43,15 @@ export default function SimuladorPage() {
     return () => window.removeEventListener('ul-theme-change', onChange as any)
   }, [])
 
+  // Pasar el token al iframe vía postMessage (más seguro que URL).
+  // El iframe debe avisar cuando esté listo, o lo intentamos cuando carga.
+  function handleIframeLoad() {
+    if (!token || !iframeRef.current?.contentWindow) return
+    try {
+      iframeRef.current.contentWindow.postMessage({ type: 'ul-token', token }, '*')
+    } catch {}
+  }
+
   // Escuchar mensajes del iframe (logout, volver al portal)
   useEffect(() => {
     function onMsg(e: MessageEvent) {
@@ -126,6 +135,7 @@ export default function SimuladorPage() {
           ref={iframeRef}
           src={iframeSrc}
           title="Simulador de Carga 3D"
+          onLoad={handleIframeLoad}
           style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: 600, border: 'none', display: 'block' }}
           allow="fullscreen; clipboard-write"
         />
