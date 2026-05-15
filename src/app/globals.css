@@ -1,3 +1,114 @@
+/* ──────────────────────────────────────────────────────────────
+   Portal Ultralam — Design Tokens
+   Sistema unificado: 2 temas (Ultralam Oscuro / Claro)
+   Marca: Negro / Blanco / Amarillo (#ffd400)
+   ────────────────────────────────────────────────────────────── */
+
+/* Reset mínimo */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+html, body { height: 100%; }
+body {
+  font-family: var(--ul-font-ui);
+  background: var(--ul-bg);
+  color: var(--ul-text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background .2s ease, color .2s ease;
+}
 input, select, textarea, button { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+
+/* ── Tipografía ─────────────────────────────────────────────── */
+:root {
+  --ul-font-ui: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ul-font-display: 'Archivo Black', 'Inter', system-ui, sans-serif;
+}
+
+/* ── Tema OSCURO (default) — Ultralam Oscuro ──────────────────── */
+:root,
+[data-theme="dark"] {
+  --ul-bg:           #0e0e0e;
+  --ul-bg-elev:      #161616;
+  --ul-surface:      #1a1a1a;
+  --ul-surface-2:    #232323;
+  --ul-surface-hover:#2a2a2a;
+  --ul-border:       #2a2a2a;
+  --ul-border-strong:#3a3a3a;
+  --ul-text:         #f5f5f4;
+  --ul-text-muted:   #9a9a96;
+  --ul-text-subtle:  #6b6b67;
+  --ul-accent:       #ffd400;
+  --ul-accent-hover: #ffdd33;
+  --ul-accent-fg:    #0e0e0e;
+  --ul-success:      #34d399;
+  --ul-warning:      #fbbf24;
+  --ul-danger:       #f87171;
+  --ul-info:         #60a5fa;
+  --ul-violet:       #a78bfa;
+  --ul-shadow-sm:    0 1px 2px rgba(0,0,0,.4);
+  --ul-shadow-md:    0 4px 14px rgba(0,0,0,.35);
+  --ul-shadow-lg:    0 20px 50px rgba(0,0,0,.55);
+  --ul-overlay:      rgba(0,0,0,.65);
+  color-scheme: dark;
+}
+
+/* ── Tema CLARO — Ultralam Claro ──────────────────────────────── */
+[data-theme="light"] {
+  --ul-bg:           #f6f5f1;
+  --ul-bg-elev:      #ffffff;
+  --ul-surface:      #ffffff;
+  --ul-surface-2:    #faf9f6;
+  --ul-surface-hover:#f0efea;
+  --ul-border:       #e5e4dd;
+  --ul-border-strong:#cfcdc4;
+  --ul-text:         #111111;
+  --ul-text-muted:   #5b5b58;
+  --ul-text-subtle:  #8a8983;
+  --ul-accent:       #ffd400;
+  --ul-accent-hover: #f5c800;
+  --ul-accent-fg:    #111111;
+  --ul-success:      #059669;
+  --ul-warning:      #d97706;
+  --ul-danger:       #dc2626;
+  --ul-info:         #2563eb;
+  --ul-violet:       #7c3aed;
+  --ul-shadow-sm:    0 1px 2px rgba(0,0,0,.06);
+  --ul-shadow-md:    0 4px 14px rgba(0,0,0,.08);
+  --ul-shadow-lg:    0 20px 50px rgba(0,0,0,.12);
+  --ul-overlay:      rgba(15,15,15,.45);
+  color-scheme: light;
+}
+
+/* ── Scrollbars sutiles ────────────────────────────────────────── */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--ul-border-strong);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--ul-text-subtle); background-clip: content-box; }
+
+/* ── Headings con Archivo Black ────────────────────────────────── */
+.ul-display,
+.ul-display * { font-family: var(--ul-font-display); letter-spacing: -0.01em; }
+
+/* ── Animaciones reutilizables ─────────────────────────────────── */
+@keyframes ul-spin { to { transform: rotate(360deg); } }
+@keyframes ul-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes ul-pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+@keyframes ul-slide-in { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform:none; } }
+
+.ul-spin { animation: ul-spin .8s linear infinite; }
+.ul-fade-in { animation: ul-fade-in .25s ease both; }
+
+/* ── Utilidades de selección ──────────────────────────────────── */
+::selection { background: var(--ul-accent); color: var(--ul-accent-fg); }
+
+/* ── Focus visible accesible ──────────────────────────────────── */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--ul-accent);
+  outline-offset: 2px;
+}

@@ -90,16 +90,22 @@ export default function HelpdeskPage(){
   const [newSubLabel,setNewSubLabel]=useState('')
 
   const d=theme==='dark'
-  const bg=d?'#191919':'#f7f6f3'
-  const surface=d?'#202020':'#ffffff'
-  const border=d?'#2f2f2f':'#e5e4e0'
-  const text=d?'#e5e4e0':'#191919'
-  const muted=d?'#787774':'#9b9a97'
-  const hover=d?'#2a2a2a':'#f0efec'
+  // Colores Ultralam vía CSS vars (sincronizado globalmente)
+  const bg='var(--ul-bg)'
+  const surface='var(--ul-surface)'
+  const border='var(--ul-border)'
+  const text='var(--ul-text)'
+  const muted='var(--ul-text-muted)'
+  const hover='var(--ul-surface-hover)'
 
   useEffect(()=>{
-    const stored=localStorage.getItem('theme') as Theme|null
-    setTheme(stored??(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'))
+    // Sincronizado con sistema global (clave ul-theme + atributo en <html>)
+    const storedTheme=(localStorage.getItem('ul-theme') as Theme|null) ?? (localStorage.getItem('theme') as Theme|null)
+    const initTheme=storedTheme ?? 'dark'
+    setTheme(initTheme)
+    document.documentElement.setAttribute('data-theme', initTheme)
+    const onThemeChange=(e:any)=>{ setTheme(e.detail as Theme) }
+    window.addEventListener('ul-theme-change', onThemeChange as any)
     // After SSO the token arrives as ?_sso=TOKEN in the URL — persist to localStorage
     const params=new URLSearchParams(window.location.search)
     const ssoToken=params.get('_sso')
@@ -112,6 +118,7 @@ export default function HelpdeskPage(){
         setToken(res.token??t);setUserEmail(res.email);setUserRol(res.rol)
         localStorage.setItem('auth_token',res.token??t)
       }).catch(()=>router.push('/login'))
+    return ()=>window.removeEventListener('ul-theme-change', onThemeChange as any)
   },[])
 
   useEffect(()=>{loadBranding()},[])
@@ -319,18 +326,25 @@ export default function HelpdeskPage(){
   async function addCat(){if(!newCatLabel.trim())return;const u=[...catCascada,{label:newCatLabel.trim(),subcategorias:[]}];await saveCat('categorias_cascada',u);setCatCascada(u);setNewCatLabel('')}
   async function removeCat(label:string){const u=catCascada.filter(c=>c.label!==label);await saveCat('categorias_cascada',u);setCatCascada(u)}
   async function addSub(){if(!selectedCatEdit||!newSubLabel.trim())return;const u=catCascada.map(c=>c.label===selectedCatEdit?{...c,subcategorias:[...c.subcategorias,{label:newSubLabel.trim(),peticiones:[]}]}:c);await saveCat('categorias_cascada',u);setCatCascada(u);setNewSubLabel('')}
-  function toggleTheme(){const n=d?'light':'dark';setTheme(n as Theme);localStorage.setItem('theme',n)}
+  function toggleTheme(){
+    const n=d?'light':'dark'
+    setTheme(n as Theme)
+    localStorage.setItem('ul-theme',n)
+    localStorage.setItem('theme',n) // backwards compat
+    document.documentElement.setAttribute('data-theme',n)
+    window.dispatchEvent(new CustomEvent('ul-theme-change',{detail:n}))
+  }
   function switchView(v:View){setView(v);if(v==='dashboard')loadDashboard();if(v==='kanban'||v==='tickets')loadAllTickets();if(v==='users'){loadUsers();loadSessions()}if(v==='kb')loadKb();if(v==='config'){loadFeatures();loadCatalogs()}}
 
-  const inp:React.CSSProperties={width:'100%',padding:'8px 10px',borderRadius:'6px',fontSize:'13px',border:`1px solid ${border}`,background:d?'#2f2f2f':'#f7f6f3',color:text,outline:'none',boxSizing:'border-box'}
-  const btn:React.CSSProperties={padding:'8px 16px',borderRadius:'6px',border:'none',fontSize:'12px',fontWeight:500,cursor:'pointer',background:d?'#fff':'#191919',color:d?'#191919':'#fff'}
+  const inp:React.CSSProperties={width:'100%',padding:'8px 10px',borderRadius:'6px',fontSize:'13px',border:`1px solid var(--ul-border)`,background:'var(--ul-surface-2)',color:'var(--ul-text)',outline:'none',boxSizing:'border-box'}
+  const btn:React.CSSProperties={padding:'8px 16px',borderRadius:'6px',border:'none',fontSize:'12px',fontWeight:600,cursor:'pointer',background:'var(--ul-accent)',color:'var(--ul-accent-fg)'}
   const btnSec:React.CSSProperties={padding:'8px 16px',borderRadius:'6px',fontSize:'12px',fontWeight:500,cursor:'pointer',background:'transparent',color:muted,border:`1px solid ${border}`}
   const btnDanger:React.CSSProperties={...btnSec,color:'#ef4444',borderColor:'#ef4444'}
-  const tag:React.CSSProperties={display:'inline-flex',alignItems:'center',gap:'4px',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',background:d?'#2f2f2f':'#f0efec',border:`1px solid ${border}`,margin:'0 4px 6px 0'}
+  const tag:React.CSSProperties={display:'inline-flex',alignItems:'center',gap:'4px',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',background:'var(--ul-surface-hover)',border:`1px solid ${border}`,margin:'0 4px 6px 0'}
 
   function Badge({label,color}:{label:string;color:string}){return<span style={{fontSize:'11px',fontWeight:500,padding:'2px 8px',borderRadius:'20px',background:color+'22',color}}>{label}</span>}
   function Msg2(){if(!msg.text)return null;const ok=msg.kind==='ok';return<div style={{padding:'8px 12px',borderRadius:'6px',fontSize:'12px',background:ok?(d?'#1a2d1a':'#f0fdf4'):(d?'#2d1a1a':'#fef2f2'),color:ok?'#10b981':'#ef4444',marginBottom:'12px'}}>{msg.text}</div>}
-  function TH({cols}:{cols:string[]}){return<thead><tr style={{background:d?'#2f2f2f':'#f7f6f3'}}>{cols.map(h=><th key={h} style={{padding:'8px 12px',fontSize:'11px',fontWeight:500,color:muted,textAlign:'left',whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>}
+  function TH({cols}:{cols:string[]}){return<thead><tr style={{background:'var(--ul-surface-2)'}}>{cols.map(h=><th key={h} style={{padding:'8px 12px',fontSize:'11px',fontWeight:500,color:muted,textAlign:'left',whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>}
   function TagList({items,onRemove}:{items:string[];onRemove:(i:string)=>void}){return<div style={{display:'flex',flexWrap:'wrap',marginBottom:'8px'}}>{items.map(item=><span key={item} style={tag}>{item}<button onClick={()=>onRemove(item)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:'14px',padding:0,lineHeight:1,marginLeft:'4px'}}>×</button></span>)}</div>}
   function TicketRow({t,onClick}:{t:Ticket;onClick:()=>void}){return<tr onClick={onClick} style={{cursor:'pointer',borderBottom:`1px solid ${border}`}} onMouseEnter={e=>e.currentTarget.style.background=hover} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><td style={{padding:'10px 12px',fontSize:'12px',fontWeight:500,color:muted,whiteSpace:'nowrap'}}>{t.id}</td><td style={{padding:'10px 12px',fontSize:'13px',maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.asunto}</td><td style={{padding:'10px 12px',fontSize:'12px',color:muted,maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.usuario_email}</td><td style={{padding:'10px 12px'}}><Badge label={STATE_LABELS[t.estado]??t.estado} color={t.estado==='cerrado'?'#6b7280':t.estado==='resuelto'?'#10b981':'#3b82f6'}/></td><td style={{padding:'10px 12px'}}><Badge label={t.prioridad} color={PRI_COLORS[t.prioridad]??'#6b7280'}/></td><td style={{padding:'10px 12px',fontSize:'12px',color:muted}}>{t.tecnico_asignado?.split('@')[0]||'—'}</td><td style={{padding:'10px 12px',fontSize:'11px',color:muted,whiteSpace:'nowrap'}}>{fmtDate(t.fecha_creacion)}</td></tr>}
 
@@ -353,7 +367,7 @@ export default function HelpdeskPage(){
         </div>
         <nav style={{flex:1,padding:'8px'}}>
           {NAV.map(item=>(
-            <div key={item.key} onClick={()=>switchView(item.key as View)} style={{display:'flex',alignItems:'center',gap:'8px',padding:'7px 10px',borderRadius:'6px',cursor:'pointer',marginBottom:'2px',fontSize:'13px',fontWeight:view===item.key?500:400,background:view===item.key?(d?'#2f2f2f':'#f0efec'):'transparent',color:view===item.key?text:muted}}>
+            <div key={item.key} onClick={()=>switchView(item.key as View)} style={{display:'flex',alignItems:'center',gap:'8px',padding:'7px 10px',borderRadius:'6px',cursor:'pointer',marginBottom:'2px',fontSize:'13px',fontWeight:view===item.key?500:400,background:view===item.key?('var(--ul-surface-hover)'):'transparent',color:view===item.key?text:muted}}>
               <span>{item.icon}</span>{item.label}
             </div>
           ))}
@@ -422,7 +436,7 @@ export default function HelpdeskPage(){
                     <span style={{fontSize:'12px'}}>{s.area}</span>
                     <span style={{fontSize:'12px',fontWeight:500,color:muted}}>{s.count}</span>
                   </div>
-                  <div style={{background:d?'#2f2f2f':'#f0efec',borderRadius:'4px',height:'8px',overflow:'hidden'}}>
+                  <div style={{background:'var(--ul-surface-hover)',borderRadius:'4px',height:'8px',overflow:'hidden'}}>
                     <div style={{height:'100%',borderRadius:'4px',background:'#3b82f6',width:`${(s.count/maxArea)*100}%`,transition:'width 0.5s'}}/>
                   </div>
                 </div>
@@ -439,7 +453,7 @@ export default function HelpdeskPage(){
                   return<div key={s.estado} style={{display:'flex',alignItems:'center',gap:'10px'}}>
                     <div style={{width:'10px',height:'10px',borderRadius:'50%',background:s.color,flexShrink:0}}/>
                     <span style={{fontSize:'12px',flex:1}}>{STATE_LABELS[s.estado]??s.estado}</span>
-                    <div style={{background:d?'#2f2f2f':'#f0efec',borderRadius:'4px',height:'6px',width:'80px',overflow:'hidden'}}>
+                    <div style={{background:'var(--ul-surface-hover)',borderRadius:'4px',height:'6px',width:'80px',overflow:'hidden'}}>
                       <div style={{height:'100%',borderRadius:'4px',background:s.color,width:`${pct}%`}}/>
                     </div>
                     <span style={{fontSize:'12px',color:muted,minWidth:'30px',textAlign:'right'}}>{s.count}</span>
@@ -472,7 +486,7 @@ export default function HelpdeskPage(){
                 </div>
                 <div style={{padding:'8px',maxHeight:'70vh',overflowY:'auto'}}>
                   {cols.map(t=>(
-                    <div key={t.id} onClick={()=>openTicket(t.id)} style={{background:d?'#2f2f2f':'#f7f6f3',borderRadius:'8px',padding:'10px 12px',marginBottom:'8px',cursor:'pointer',border:`1px solid ${border}`}}>
+                    <div key={t.id} onClick={()=>openTicket(t.id)} style={{background:'var(--ul-surface-2)',borderRadius:'8px',padding:'10px 12px',marginBottom:'8px',cursor:'pointer',border:`1px solid ${border}`}}>
                       <div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>{t.id}</div>
                       <div style={{fontSize:'13px',fontWeight:500,marginBottom:'6px',lineHeight:1.3}}>{t.asunto}</div>
                       <div style={{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
@@ -528,7 +542,7 @@ export default function HelpdeskPage(){
                   ))}
                 </div>
                 <div><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Descripción</div>
-                  <div style={{fontSize:'13px',whiteSpace:'pre-wrap',background:d?'#2f2f2f':'#f7f6f3',padding:'10px',borderRadius:'6px',lineHeight:1.6}}>{currentTicket.descripcion||'—'}</div>
+                  <div style={{fontSize:'13px',whiteSpace:'pre-wrap',background:'var(--ul-surface-2)',padding:'10px',borderRadius:'6px',lineHeight:1.6}}>{currentTicket.descripcion||'—'}</div>
                 </div>
               </div>
               <div style={{background:surface,border:`1px solid ${border}`,borderRadius:'10px',padding:'20px'}}>
@@ -566,7 +580,7 @@ export default function HelpdeskPage(){
               </label>
               {(currentTicket.evidencias_json??[]).length===0?<div style={{fontSize:'12px',color:muted,textAlign:'center'}}>Sin evidencias</div>
                 :(currentTicket.evidencias_json??[]).map((ev:any,i:number)=>(
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',padding:'8px',background:d?'#2f2f2f':'#f7f6f3',borderRadius:'6px'}}>
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',padding:'8px',background:'var(--ul-surface-2)',borderRadius:'6px'}}>
                     <span>{ev.name?.match(/\.(png|jpg|jpeg|gif|webp)$/i)?'🖼️':'📎'}</span>
                     <a href={ev.url} target="_blank" rel="noreferrer" style={{color:'#3b82f6',fontSize:'12px',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.name??`Archivo ${i+1}`}</a>
                     <button onClick={()=>deleteFile(ev.path)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:'16px',padding:'0 4px',flexShrink:0}}>×</button>
@@ -669,7 +683,7 @@ export default function HelpdeskPage(){
           {selectedUser&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
             <div style={{background:surface,borderRadius:'12px',padding:'24px',width:'400px'}}>
               <div style={{fontSize:'15px',fontWeight:600,marginBottom:'16px'}}>Editar usuario</div>
-              <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Email</div><div style={{fontSize:'13px',padding:'8px',background:d?'#2f2f2f':'#f7f6f3',borderRadius:'6px'}}>{selectedUser.email}</div></div>
+              <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Email</div><div style={{fontSize:'13px',padding:'8px',background:'var(--ul-surface-2)',borderRadius:'6px'}}>{selectedUser.email}</div></div>
               <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Nombre</div><input style={inp} value={selectedUser.nombre||''} onChange={e=>setSelectedUser({...selectedUser,nombre:e.target.value})}/></div>
               <div style={{marginBottom:'10px'}}><div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Rol</div>
                 <select style={inp} value={selectedUser.rol} onChange={e=>setSelectedUser({...selectedUser,rol:e.target.value})}>
@@ -692,7 +706,7 @@ export default function HelpdeskPage(){
           <div style={{display:'grid',gridTemplateColumns:'1fr 400px',gap:'16px'}}>
             <div style={{background:surface,border:`1px solid ${border}`,borderRadius:'10px',overflow:'hidden'}}>
               {kbItems.map(item=>(
-                <div key={item.id} onClick={()=>{setKbSelected(item);setKbForm({titulo:item.titulo,categoria:item.categoria,contenido:item.contenido})}} style={{padding:'12px 16px',borderBottom:`1px solid ${border}`,cursor:'pointer',background:kbSelected?.id===item.id?(d?'#2f2f2f':'#f0efec'):'transparent'}}>
+                <div key={item.id} onClick={()=>{setKbSelected(item);setKbForm({titulo:item.titulo,categoria:item.categoria,contenido:item.contenido})}} style={{padding:'12px 16px',borderBottom:`1px solid ${border}`,cursor:'pointer',background:kbSelected?.id===item.id?('var(--ul-surface-hover)'):'transparent'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div style={{fontSize:'13px',fontWeight:500}}>{item.titulo}</div>
                     <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
@@ -736,8 +750,8 @@ export default function HelpdeskPage(){
               {getStatusInfo(selectedAgent.agent_status).level&&<span style={{fontSize:'10px',padding:'2px 6px',borderRadius:'4px',background:getStatusInfo(selectedAgent.agent_status).color+'30',color:getStatusInfo(selectedAgent.agent_status).color,marginLeft:'auto'}}>{getStatusInfo(selectedAgent.agent_status).level}</span>}
             </div>
             {selectedAgent.agent_status_detail
-              ?<div style={{padding:'14px',borderRadius:'8px',background:d?'#2f2f2f':'#f7f6f3',fontSize:'13px',lineHeight:1.5,whiteSpace:'pre-wrap',color:text}}>{selectedAgent.agent_status_detail}</div>
-              :<div style={{padding:'14px',borderRadius:'8px',background:d?'#2f2f2f':'#f7f6f3',fontSize:'12px',color:muted,fontStyle:'italic',textAlign:'center'}}>Sin detalle</div>
+              ?<div style={{padding:'14px',borderRadius:'8px',background:'var(--ul-surface-2)',fontSize:'13px',lineHeight:1.5,whiteSpace:'pre-wrap',color:text}}>{selectedAgent.agent_status_detail}</div>
+              :<div style={{padding:'14px',borderRadius:'8px',background:'var(--ul-surface-2)',fontSize:'12px',color:muted,fontStyle:'italic',textAlign:'center'}}>Sin detalle</div>
             }
             {selectedAgent.agent_status_updated_at&&<div style={{fontSize:'10px',color:muted,marginTop:'10px',textAlign:'right'}}>Actualizado {fmtDate(selectedAgent.agent_status_updated_at)}</div>}
           </div>
@@ -794,15 +808,15 @@ export default function HelpdeskPage(){
             <div style={{fontSize:'11px',color:muted,marginBottom:'16px'}}>Las capturas de tickets cerrados se eliminan automáticamente. El ticket queda intacto y los PDFs ya están en tu correo como respaldo.</div>
 
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',marginBottom:'16px'}}>
-              <div style={{padding:'14px',borderRadius:'8px',background:d?'#2f2f2f':'#f7f6f3'}}>
+              <div style={{padding:'14px',borderRadius:'8px',background:'var(--ul-surface-2)'}}>
                 <div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Tickets en cola</div>
                 <div style={{fontSize:'22px',fontWeight:700,color:purgeStats.pendingTickets>0?'#f59e0b':text}}>{purgeStats.pendingTickets}</div>
               </div>
-              <div style={{padding:'14px',borderRadius:'8px',background:d?'#2f2f2f':'#f7f6f3'}}>
+              <div style={{padding:'14px',borderRadius:'8px',background:'var(--ul-surface-2)'}}>
                 <div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Archivos a purgar</div>
                 <div style={{fontSize:'22px',fontWeight:700,color:purgeStats.pendingFiles>0?'#f59e0b':text}}>{purgeStats.pendingFiles}</div>
               </div>
-              <div style={{padding:'14px',borderRadius:'8px',background:d?'#2f2f2f':'#f7f6f3'}}>
+              <div style={{padding:'14px',borderRadius:'8px',background:'var(--ul-surface-2)'}}>
                 <div style={{fontSize:'11px',color:muted,marginBottom:'4px'}}>Última ejecución</div>
                 <div style={{fontSize:'13px',fontWeight:500,color:text}}>{purgeStats.lastPurgeAt?fmtDate(purgeStats.lastPurgeAt):'Nunca'}</div>
                 {purgeStats.lastPurgeStats&&<div style={{fontSize:'10px',color:muted,marginTop:'2px'}}>{purgeStats.lastPurgeStats.filesDeleted} archivos · {purgeStats.lastPurgeStats.ticketsAffected} tickets</div>}
@@ -836,7 +850,7 @@ export default function HelpdeskPage(){
                 <div key={s.key} style={{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderBottom:`1px solid ${border}`}}>
                   <div style={{width:'12px',height:'12px',borderRadius:'50%',background:s.color??'#6b7280',flexShrink:0}}/>
                   <span style={{fontSize:'13px',flex:1}}>{s.label}</span>
-                  {s.level&&<span style={{fontSize:'10px',color:muted,padding:'2px 6px',borderRadius:'4px',background:d?'#2f2f2f':'#f0efec'}}>{s.level}</span>}
+                  {s.level&&<span style={{fontSize:'10px',color:muted,padding:'2px 6px',borderRadius:'4px',background:'var(--ul-surface-hover)'}}>{s.level}</span>}
                   {s.key!=='disponible'&&<button style={{...btnDanger,padding:'3px 10px',fontSize:'11px'}} onClick={()=>removeAgentStatus(s.key)}>×</button>}
                 </div>
               ))}
@@ -889,7 +903,7 @@ export default function HelpdeskPage(){
               <div>
                 <div style={{fontSize:'11px',color:muted,marginBottom:'8px'}}>Categorías</div>
                 {catCascada.map(c=>(
-                  <div key={c.label} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',borderRadius:'6px',border:`1px solid ${border}`,marginBottom:'4px',background:selectedCatEdit===c.label?(d?'#2f2f2f':'#f0efec'):'transparent',cursor:'pointer'}} onClick={()=>setSelectedCatEdit(c.label)}>
+                  <div key={c.label} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',borderRadius:'6px',border:`1px solid ${border}`,marginBottom:'4px',background:selectedCatEdit===c.label?('var(--ul-surface-hover)'):'transparent',cursor:'pointer'}} onClick={()=>setSelectedCatEdit(c.label)}>
                     <span style={{fontSize:'13px'}}>{c.label}</span>
                     <div style={{display:'flex',gap:'4px',alignItems:'center'}}>
                       <span style={{fontSize:'11px',color:muted}}>{c.subcategorias.length} sub</span>

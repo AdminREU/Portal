@@ -1,9 +1,57 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 
 type User = { email: string; nombre?: string; rol: string; roles_extra?: string[]; puesto?: string; departamento?: string; telefono?: string }
 type AccesoFlags = { puede_helpdesk_admin: boolean; puede_compras_admin: boolean; es_admin: boolean }
+
+type HeroSlide = {
+  key: string
+  badge: string
+  title: string
+  subtitle: string
+  href: string
+  accent: string
+  icon: string
+}
+
+const HERO_SLIDES: HeroSlide[] = [
+  {
+    key: 'helpdesk',
+    badge: 'DESTACADO',
+    title: 'Helpdesk',
+    subtitle: 'Soporte técnico y tickets de incidencias',
+    href: '/helpdesk',
+    accent: '#3b82f6',
+    icon: '🎫',
+  },
+  {
+    key: 'compras',
+    badge: 'DESTACADO',
+    title: 'Sistema de Compras',
+    subtitle: 'Órdenes de compra, aprobaciones y proveedores',
+    href: '/compras',
+    accent: '#ffd400',
+    icon: '🛒',
+  },
+  {
+    key: 'simulador',
+    badge: 'PRÓXIMAMENTE',
+    title: 'Simulador de Carga 3D',
+    subtitle: 'Cálculo y visualización 3D de cargas',
+    href: '#',
+    accent: '#a78bfa',
+    icon: '📐',
+  },
+]
+
+const FRASES = [
+  '"La calidad nunca es un accidente; es siempre el resultado de un esfuerzo inteligente." — John Ruskin',
+  '"Lo que no se mide, no se mejora." — Peter Drucker',
+  '"El secreto del éxito es la constancia en el propósito." — Benjamin Disraeli',
+  '"La excelencia no es un acto, sino un hábito." — Aristóteles',
+]
 
 export default function PortalPage() {
   const router = useRouter()
@@ -13,25 +61,20 @@ export default function PortalPage() {
   const [ordenes, setOrdenes] = useState<any[]>([])
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [showProfile, setShowProfile] = useState(false)
 
-  const [brandingName, setBrandingName] = useState('Portal Ultralam')
-  const [brandingColor, setBrandingColor] = useState('#F5C400')
-  const [brandingLogo, setBrandingLogo] = useState('')
+  // Hero rotativo
+  const [heroIdx, setHeroIdx] = useState(1) // Compras destacado por default
+  const [autoRotate, setAutoRotate] = useState(true)
 
   useEffect(() => {
     const t = localStorage.getItem('auth_token') ?? ''
     if (!t) { router.replace('/login'); return }
     setToken(t)
 
-    fetch('/api/branding').then(r => r.json()).then(b => {
-      if (b.ok) { setBrandingName(b.name); setBrandingColor(b.primaryColor); setBrandingLogo(b.logoUrl) }
-    }).catch(() => {})
-
     Promise.all([
       fetch('/api/auth/resume', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: t }) }).then(r => r.json()),
       fetch('/api/users/me', { headers: { Authorization: `Bearer ${t}` } }).then(r => r.json()),
-      fetch('/api/compras/dashboard', { headers: { Authorization: `Bearer ${t}` } }).then(r => r.json()),
+      fetch('/api/compras/dashboard', { headers: { Authorization: `Bearer ${t}` } }).then(r => r.json()).catch(() => ({ ok: false })),
     ]).then(([resume, me, dash]) => {
       if (!resume.ok) { router.replace('/login'); return }
       if (me.ok && me.user) {
@@ -46,218 +89,258 @@ export default function PortalPage() {
       .finally(() => setLoading(false))
   }, [router])
 
-  async function logout() {
-    localStorage.removeItem('auth_token')
-    document.cookie = 'auth_token=; path=/; max-age=0'
-    router.replace('/login')
-  }
+  useEffect(() => {
+    if (!autoRotate) return
+    const id = setInterval(() => setHeroIdx(i => (i + 1) % HERO_SLIDES.length), 6000)
+    return () => clearInterval(id)
+  }, [autoRotate])
 
-  async function saveProfile(perfil: Partial<User>) {
-    const r = await fetch('/api/users/me', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(perfil),
-    })
-    const d = await r.json()
-    if (d.ok) {
-      setUser(u => u ? { ...u, ...perfil } : u)
-      setShowProfile(false)
-    } else { alert(d.error || 'Error') }
-  }
+  const saludo = useMemo(() => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Buenos días'
+    if (h < 19) return 'Buenas tardes'
+    return 'Buenas noches'
+  }, [])
 
-  if (loading) return <LoadingScreen color={brandingColor} />
+  const fraseHoy = useMemo(() => FRASES[new Date().getDate() % FRASES.length], [])
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ul-bg)' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--ul-border)', borderTopColor: 'var(--ul-accent)', borderRadius: '50%', animation: 'ul-spin .8s linear infinite' }} />
+      </div>
+    )
+  }
   if (!user) return null
 
-  const totalOrdenes = ordenes.length
+  const slide = HERO_SLIDES[heroIdx]
   const ordenesPendientes = ordenes.filter(o => o.estatus === 'pendiente_aprob').length
-  const ordenesAprob = ordenes.filter(o => ['aprobada','en_compra','pagada','recibida_total'].includes(o.estatus)).length
-  const totalTickets = tickets.length
-  const ticketsAbiertos = tickets.filter(t => !['resuelto','cerrado'].includes(t.estado)).length
+  const ticketsAbiertos = tickets.filter(t => !['resuelto', 'cerrado'].includes(t.estado)).length
 
-  const moduleCards = [
-    {
-      key: 'compras', icon: '🛒', label: 'Compras',
-      desc: accesos.puede_compras_admin ? 'Gestiona órdenes de compra, proveedores, aprobaciones' : 'Crea y consulta tus órdenes de compra',
-      href: '/compras', color: brandingColor,
-    },
-    {
-      key: 'helpdesk', icon: '🎫', label: 'Helpdesk',
-      desc: accesos.puede_helpdesk_admin ? 'Atiende tickets de soporte y resuelve incidencias' : 'Crea y consulta tus tickets de soporte',
-      href: '/helpdesk', color: '#3b82f6',
-    },
+  // Datos mock para tablero (Fase 2 conecta con BD real)
+  const anuncios = [
+    { tag: 'ANUNCIO', text: 'Inventario actualizado de PVC blanco 1.5mm', date: 'Hoy' },
+    { tag: 'CAPACIT.', text: 'Taller de uso del simulador 3D', date: 'Mañana' },
+    { tag: 'SISTEMAS', text: 'Mantenimiento del simulador', date: 'Lun 28' },
+  ]
+  const notificaciones = [
+    { text: `Tickets abiertos: ${ticketsAbiertos}`, when: 'hoy' },
+    { text: `Órdenes pendientes de aprobación: ${ordenesPendientes}`, when: 'hoy' },
+  ]
+  const tareas = [
+    { d: '27', text: 'Revisar OC pendientes', done: false },
+    { d: '28', text: 'Inventario lambril', done: false },
+    { d: '29', text: 'Reporte mensual', done: true },
+  ]
+  const cumples = [
+    { ini: 'M', name: 'María González', sub: 'Ventas · cumpleaños', when: 'HOY' },
+    { ini: 'C', name: 'Carlos Ruiz', sub: 'Producción · cumpleaños', when: '29 ABR' },
+    { ini: 'A', name: 'Ana Pérez', sub: '5 años en Ultralam', when: 'ESTA SEMANA' },
+    { ini: '🎉', name: 'Convivio mensual viernes 3pm en cafetería', sub: '', when: '30 ABR' },
   ]
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#f7f6f3', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e4e0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {brandingLogo
-              ? <img src={brandingLogo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}/>
-              : <div style={{ width: 36, height: 36, borderRadius: 8, background: brandingColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#191919' }}>{brandingName.charAt(0)}</div>
-            }
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#191919' }}>{brandingName}</div>
-              <div style={{ fontSize: 11, color: '#888' }}>Portal corporativo</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#191919' }}>{user.nombre || user.email}</div>
-              <div style={{ fontSize: 11, color: '#888' }}>{user.rol}{user.roles_extra?.length ? ' + ' + user.roles_extra.join(', ') : ''}</div>
-            </div>
-            <button onClick={() => setShowProfile(true)} style={iconBtn} title="Mi perfil">⚙️</button>
-            <button onClick={logout} style={iconBtn} title="Cerrar sesión">🚪</button>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: '#191919', margin: '0 0 6px' }}>Hola, {user.nombre || user.email.split('@')[0]} 👋</h1>
-        <p style={{ fontSize: 14, color: '#666', margin: '0 0 32px' }}>Selecciona un módulo o consulta tu actividad reciente.</p>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '32px' }}>
-          <StatCard label="Mis OC" value={totalOrdenes} sub={`${ordenesPendientes} pendientes`} color={brandingColor} />
-          <StatCard label="OC aprobadas" value={ordenesAprob} sub="" color="#10b981" />
-          <StatCard label="Mis tickets" value={totalTickets} sub={`${ticketsAbiertos} abiertos`} color="#3b82f6" />
-          <StatCard label="Tu rol" value={user.rol} sub={user.roles_extra?.length ? user.roles_extra.join(', ') : 'Solo usuario'} color="#6366f1" />
-        </div>
-
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#191919', margin: '0 0 14px' }}>Módulos disponibles</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '16px', marginBottom: '32px' }}>
-          {moduleCards.map(m => (
-            <button key={m.key} onClick={() => router.push(m.href)}
-              style={{ background: '#fff', border: '1px solid #e5e4e0', borderRadius: 14, padding: '24px', textAlign: 'left', cursor: 'pointer', transition: 'all .2s', display: 'flex', flexDirection: 'column', gap: 12 }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = m.color; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e5e4e0'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)' }}
-            >
-              <div style={{ fontSize: 36 }}>{m.icon}</div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#191919', marginBottom: 6 }}>{m.label}</div>
-                <div style={{ fontSize: 13, color: '#666' }}>{m.desc}</div>
-              </div>
-              <div style={{ color: m.color, fontWeight: 600, fontSize: 13, marginTop: 'auto' }}>Ingresar →</div>
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(360px,1fr))', gap: '16px' }}>
-          <ListPanel
-            title="Órdenes recientes"
-            empty="No tienes órdenes aún"
-            items={ordenes.slice(0,6).map(o => ({
-              primary: o.id, secondary: `${labelEstatus(o.estatus)} · $${Number(o.total).toLocaleString('es-MX')}`,
-              date: o.created_at,
-            }))}
-            onClick={() => router.push('/compras')}
-            cta="Ver todas →"
-            color={brandingColor}
-          />
-          <ListPanel
-            title="Tickets recientes"
-            empty="No tienes tickets aún"
-            items={tickets.slice(0,6).map(t => ({
-              primary: `${t.id} — ${t.asunto}`, secondary: `${t.estado} · ${t.prioridad}`,
-              date: t.fecha_creacion,
-            }))}
-            onClick={() => router.push('/helpdesk')}
-            cta="Ver todos →"
-            color="#3b82f6"
-          />
-        </div>
-      </div>
-
-      {showProfile && <ProfileModal user={user} onSave={saveProfile} onClose={() => setShowProfile(false)} color={brandingColor} />}
-    </div>
-  )
-}
-
-function LoadingScreen({ color }: { color: string }) {
-  return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f7f6f3' }}>
-      <div style={{ width:48, height:48, border:'4px solid #e5e4e0', borderTopColor: color, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  )
-}
-
-function StatCard({ label, value, sub, color }: { label: string, value: any, sub: string, color: string }) {
-  return (
-    <div style={{ background:'#fff', border:'1px solid #e5e4e0', borderRadius:12, padding:'16px' }}>
-      <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>{label}</div>
-      <div style={{ fontSize:24, fontWeight:700, color:'#191919', marginBottom:2 }}>{value}</div>
-      <div style={{ fontSize:11, color }}>{sub}</div>
-    </div>
-  )
-}
-
-function ListPanel({ title, items, empty, onClick, cta, color }: any) {
-  return (
-    <div style={{ background:'#fff', border:'1px solid #e5e4e0', borderRadius:12, padding:'16px' }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-        <div style={{ fontSize:14, fontWeight:700, color:'#191919' }}>{title}</div>
-        <button onClick={onClick} style={{ background:'none', border:'none', color, fontSize:12, fontWeight:600, cursor:'pointer' }}>{cta}</button>
-      </div>
-      {items.length === 0
-        ? <div style={{ padding:'24px 0', textAlign:'center', fontSize:13, color:'#999' }}>{empty}</div>
-        : items.map((it: any, i: number) => (
-            <div key={i} style={{ padding:'10px 0', borderTop: i === 0 ? 'none' : '1px solid #f0efeb' }}>
-              <div style={{ fontSize:13, color:'#191919', fontWeight:500, marginBottom:2 }}>{it.primary}</div>
-              <div style={{ fontSize:11, color:'#888' }}>{it.secondary} · {it.date ? new Date(it.date).toLocaleDateString('es-MX') : ''}</div>
-            </div>
-          ))
-      }
-    </div>
-  )
-}
-
-function ProfileModal({ user, onSave, onClose, color }: any) {
-  const [nombre, setNombre] = useState(user.nombre || '')
-  const [puesto, setPuesto] = useState(user.puesto || '')
-  const [departamento, setDepartamento] = useState(user.departamento || '')
-  const [telefono, setTelefono] = useState(user.telefono || '')
-
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:24, zIndex:50 }}>
-      <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:480, width:'100%' }}>
-        <h2 style={{ fontSize:18, fontWeight:700, color:'#191919', margin:'0 0 16px' }}>Mi perfil</h2>
-        <Field label="Email"><input value={user.email} disabled style={{ ...inputStyle, opacity:.7 }}/></Field>
-        <Field label="Nombre completo"><input value={nombre} onChange={e=>setNombre(e.target.value)} style={inputStyle}/></Field>
-        <Field label="Puesto"><input value={puesto} onChange={e=>setPuesto(e.target.value)} style={inputStyle}/></Field>
-        <Field label="Departamento"><input value={departamento} onChange={e=>setDepartamento(e.target.value)} style={inputStyle}/></Field>
-        <Field label="Teléfono"><input value={telefono} onChange={e=>setTelefono(e.target.value)} style={inputStyle}/></Field>
-        <div style={{ display:'flex', gap:8, marginTop:16 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'10px 16px', background:'#f7f6f3', border:'1px solid #e5e4e0', borderRadius:8, cursor:'pointer' }}>Cancelar</button>
-          <button onClick={() => onSave({ nombre, puesto, departamento, telefono })} style={{ flex:1, padding:'10px 16px', background:color, border:'none', borderRadius:8, fontWeight:600, color:'#191919', cursor:'pointer' }}>Guardar</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string, children: any }) {
-  return (
-    <div style={{ marginBottom:12 }}>
-      <label style={{ fontSize:11, fontWeight:600, color:'#888', textTransform:'uppercase', letterSpacing:'.5px', display:'block', marginBottom:4 }}>{label}</label>
-      {children}
-    </div>
-  )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '9px 12px', fontSize: 14, borderRadius: 8,
-  border: '1px solid #e5e4e0', background: '#f7f6f3', color: '#191919', outline: 'none', boxSizing: 'border-box',
-}
-
-const iconBtn: React.CSSProperties = {
-  background:'transparent', border:'1px solid #e5e4e0', borderRadius:8, padding:'6px 10px', fontSize:14, cursor:'pointer',
-}
-
-function labelEstatus(e: string): string {
-  const m: Record<string,string> = {
-    borrador:'Borrador', pendiente_aprob:'Pendiente', aprobada:'Aprobada', rechazada:'Rechazada',
-    en_compra:'En compra', en_transito:'En tránsito', recibida_parcial:'Recibida parcial',
-    recibida_total:'Recibida', facturada:'Facturada', pagada:'Pagada', cerrada:'Cerrada', cancelada:'Cancelada',
+  const nav = [
+    {
+      title: 'PRINCIPAL',
+      items: [
+        { key: 'inicio', label: 'Inicio', icon: '◆' },
+        { key: 'helpdesk', label: 'Helpdesk', icon: '🎫', href: '/helpdesk' },
+        { key: 'compras', label: 'Compras', icon: '🛒', href: '/compras', badge: ordenesPendientes || undefined },
+        { key: 'simulador', label: 'Simulador 3D', icon: '📐', onClick: () => alert('Próximamente') },
+      ],
+    },
+  ]
+  if (accesos.es_admin) {
+    nav.push({
+      title: 'ADMINISTRACIÓN',
+      items: [
+        { key: 'admin', label: 'Panel general', icon: '⚙', onClick: () => alert('Panel admin — Fase 3') },
+      ],
+    })
   }
-  return m[e] || e
+
+  return (
+    <AppShell
+      app="portal"
+      appLabel="ULTRA PORTAL"
+      appVersion="v3.0.0"
+      nav={nav}
+      activeKey="inicio"
+      user={user}
+    >
+      {/* Saludo */}
+      <div style={{ marginBottom: 22 }}>
+        <h1 className="ul-display" style={{ fontSize: 32, color: 'var(--ul-text)', letterSpacing: '-0.5px' }}>
+          {saludo}, equipo Ultralam
+        </h1>
+        <div style={{ fontSize: 13, color: 'var(--ul-text-subtle)', marginTop: 6 }}>
+          3 herramientas activas · {tickets.length + ordenes.length} eventos próximos
+        </div>
+      </div>
+
+      {/* Hero rotativo + columna derecha (frase + espacio ameno) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', gap: 18, marginBottom: 22 }}>
+        <Hero slide={slide} idx={heroIdx} total={HERO_SLIDES.length} onPick={(i) => { setHeroIdx(i); setAutoRotate(false) }} onGo={() => slide.href !== '#' && router.push(slide.href)} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Panel title="FRASE DEL DÍA" icon="✦">
+            <p style={{ fontSize: 13, color: 'var(--ul-text)', lineHeight: 1.55, margin: 0 }}>{fraseHoy}</p>
+          </Panel>
+
+          <Panel title="ESPACIO AMENO" icon="🎈">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {cumples.map((c, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < cumples.length - 1 ? '1px solid var(--ul-border)' : 'none' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--ul-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: 'var(--ul-text)', flexShrink: 0 }}>{c.ini}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: 'var(--ul-text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                    {c.sub && <div style={{ fontSize: 10, color: 'var(--ul-text-subtle)' }}>{c.sub}</div>}
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--ul-text-subtle)', fontWeight: 700, letterSpacing: '.5px', whiteSpace: 'nowrap' }}>{c.when}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      </div>
+
+      {/* Indicador de slide + pills de selección */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 28 }}>
+        {HERO_SLIDES.map((s, i) => (
+          <button
+            key={s.key}
+            onClick={() => { setHeroIdx(i); setAutoRotate(false) }}
+            style={{
+              padding: '6px 14px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+              border: '1px solid ' + (heroIdx === i ? 'var(--ul-text)' : 'var(--ul-border)'),
+              background: heroIdx === i ? 'var(--ul-text)' : 'transparent',
+              color: heroIdx === i ? 'var(--ul-bg)' : 'var(--ul-text-muted)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <span>{s.icon}</span>{s.title}
+          </button>
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--ul-text-subtle)', marginLeft: 8 }}>{heroIdx + 1} / {HERO_SLIDES.length}</span>
+      </div>
+
+      {/* TABLERO */}
+      <div style={{ marginBottom: 12 }}>
+        <h2 className="ul-display" style={{ fontSize: 14, color: 'var(--ul-text)', letterSpacing: '1px', marginBottom: 10 }}>TABLERO</h2>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+        <Panel title="ANUNCIOS" icon="📢">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {anuncios.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < anuncios.length - 1 ? '1px solid var(--ul-border)' : 'none' }}>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 7px', borderRadius: 4, background: 'var(--ul-surface-2)', color: 'var(--ul-text-muted)', letterSpacing: '.5px', whiteSpace: 'nowrap' }}>{a.tag}</span>
+                <span style={{ flex: 1, fontSize: 12, color: 'var(--ul-text)' }}>{a.text}</span>
+                <span style={{ fontSize: 10, color: 'var(--ul-text-subtle)', whiteSpace: 'nowrap' }}>{a.date}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="NOTIFICACIONES" icon="🔔">
+          {notificaciones.length === 0
+            ? <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', padding: '12px 0' }}>Sin notificaciones</div>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {notificaciones.map((n, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < notificaciones.length - 1 ? '1px solid var(--ul-border)' : 'none' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ul-accent)', flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 12, color: 'var(--ul-text)' }}>{n.text}</span>
+                    <span style={{ fontSize: 10, color: 'var(--ul-text-subtle)' }}>{n.when}</span>
+                  </div>
+                ))}
+              </div>
+          }
+        </Panel>
+
+        <Panel title="TAREAS / CALENDARIO" icon="📅">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {tareas.map((t, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < tareas.length - 1 ? '1px solid var(--ul-border)' : 'none' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--ul-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--ul-text)' }}>{t.d}</div>
+                <span style={{ flex: 1, fontSize: 12, color: 'var(--ul-text)', textDecoration: t.done ? 'line-through' : 'none', opacity: t.done ? .55 : 1 }}>{t.text}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+    </AppShell>
+  )
+}
+
+/* ────────── Hero ────────── */
+function Hero({ slide, idx, total, onPick, onGo }: { slide: HeroSlide; idx: number; total: number; onPick: (i: number) => void; onGo: () => void }) {
+  return (
+    <div
+      onClick={onGo}
+      style={{
+        position: 'relative', cursor: slide.href !== '#' ? 'pointer' : 'default',
+        background: 'linear-gradient(135deg, var(--ul-surface) 0%, var(--ul-bg-elev) 100%)',
+        border: '1px solid var(--ul-border)', borderRadius: 18, overflow: 'hidden',
+        minHeight: 280, display: 'flex', flexDirection: 'column',
+        boxShadow: 'var(--ul-shadow-md)',
+      }}
+    >
+      {/* Patrón de fondo */}
+      <div aria-hidden style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: `radial-gradient(circle at 80% 20%, ${slide.accent}1F, transparent 50%)`,
+        pointerEvents: 'none',
+      }} />
+      {/* Líneas diagonales sutiles */}
+      <div aria-hidden style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: 'repeating-linear-gradient(45deg, transparent 0 24px, rgba(255,255,255,.015) 24px 25px)',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{ position: 'relative', padding: 28, display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '1px',
+            padding: '4px 10px', borderRadius: 4,
+            background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)',
+          }}>{slide.badge}</span>
+          <span style={{ fontSize: 10, color: 'var(--ul-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ul-success)' }} />
+            online
+          </span>
+        </div>
+
+        <div style={{ marginTop: 'auto' }}>
+          <div style={{ fontSize: 60, lineHeight: 1, marginBottom: 12 }}>{slide.icon}</div>
+          <h2 className="ul-display" style={{ fontSize: 36, color: 'var(--ul-text)', letterSpacing: '-0.5px', lineHeight: 1.05, marginBottom: 8 }}>
+            {slide.title}
+          </h2>
+          <p style={{ fontSize: 14, color: 'var(--ul-text-muted)', lineHeight: 1.5, maxWidth: 480 }}>{slide.subtitle}</p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--ul-border)' }}>
+          <span style={{ fontSize: 11, color: 'var(--ul-text-subtle)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            Click ↗ para abrir
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--ul-text-subtle)' }}>{idx + 1}/{total} · auto-rotate</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ────────── Panel reutilizable ────────── */
+function Panel({ title, icon, children }: { title: string; icon?: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: 'var(--ul-surface)', border: '1px solid var(--ul-border)',
+      borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div className="ul-display" style={{ fontSize: 11, color: 'var(--ul-text)', letterSpacing: '1px' }}>{title}</div>
+        {icon && <span style={{ fontSize: 13, opacity: .6 }}>{icon}</span>}
+      </div>
+      <div style={{ flex: 1 }}>{children}</div>
+    </div>
+  )
 }

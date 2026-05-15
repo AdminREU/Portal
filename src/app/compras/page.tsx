@@ -130,10 +130,10 @@ export default function ComprasPage() {
   ]
 
   return (
-    <div style={{ minHeight:'100vh', background:'#f7f6f3', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ minHeight:'100vh', background:'var(--ul-bg)', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
       <Header user={user} brand={brand} onHome={() => router.push('/portal')} onLogout={() => { localStorage.removeItem('auth_token'); router.replace('/login') }}/>
 
-      <div style={{ background:'#fff', borderBottom:'1px solid #e5e4e0' }}>
+      <div style={{ background:'var(--ul-surface)', borderBottom:'1px solid var(--ul-border)' }}>
         <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 24px', display:'flex', gap:8, overflowX:'auto' }}>
           {tabs.filter(([_,__,visible]) => visible).map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)} style={{
@@ -179,26 +179,42 @@ export default function ComprasPage() {
 
 // ─── Header ──────────────────────────────────────────────────
 function Header({ user, brand, onHome, onLogout }: any) {
+  const [theme, setThemeState] = useState<'dark'|'light'>('dark')
+  useEffect(() => {
+    const t = (localStorage.getItem('ul-theme') as 'dark'|'light'|null) ?? 'dark'
+    setThemeState(t)
+    const onChange = (e: any) => setThemeState(e.detail)
+    window.addEventListener('ul-theme-change', onChange as any)
+    return () => window.removeEventListener('ul-theme-change', onChange as any)
+  }, [])
+  function flip(t: 'dark'|'light') {
+    localStorage.setItem('ul-theme', t)
+    document.documentElement.setAttribute('data-theme', t)
+    setThemeState(t)
+    window.dispatchEvent(new CustomEvent('ul-theme-change', { detail: t }))
+  }
   return (
-    <div style={{ background:'#fff', borderBottom:'1px solid #e5e4e0' }}>
-      <div style={{ maxWidth:1280, margin:'0 auto', padding:'16px 24px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+    <div style={{ background:'var(--ul-bg-elev)', borderBottom:'1px solid var(--ul-border)' }}>
+      <div style={{ maxWidth:1280, margin:'0 auto', padding:'14px 24px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <button onClick={onHome} style={{ background:'none', border:'none', cursor:'pointer', fontSize:18 }}>←</button>
-          {brand.logo
-            ? <img src={brand.logo} alt="" style={{ width:32, height:32, borderRadius:6, objectFit:'cover' }}/>
-            : <div style={{ width:32, height:32, borderRadius:6, background:brand.color, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, color:'#191919', fontSize:13 }}>🛒</div>
-          }
+          <button onClick={onHome} title="Volver al portal" style={{ background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:8, padding:'6px 10px', cursor:'pointer', color:'var(--ul-text)', fontSize:13 }}>← Portal</button>
+          <div style={{ width:32, height:32, borderRadius:8, background:'var(--ul-accent)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, color:'var(--ul-accent-fg)', fontSize:15 }}>🛒</div>
           <div>
-            <div style={{ fontSize:15, fontWeight:700, color:'#191919' }}>Compras</div>
-            <div style={{ fontSize:11, color:'#888' }}>{brand.name}</div>
+            <div className="ul-display" style={{ fontSize:15, color:'var(--ul-text)', letterSpacing:'.5px' }}>COMPRAS</div>
+            <div style={{ fontSize:10, color:'var(--ul-text-subtle)' }}>Ultralam · v3.0.0</div>
           </div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:13, fontWeight:600 }}>{user.nombre || user.email}</div>
-            <div style={{ fontSize:11, color:'#888' }}>{user.rol}{user.roles_extra?.length ? ' · ' + user.roles_extra.join(', ') : ''}</div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          {/* Theme switcher segmentado */}
+          <div style={{ display:'flex', alignItems:'center', background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:999, padding:3, gap:2 }}>
+            <button onClick={() => flip('dark')} style={{ border:'none', cursor:'pointer', padding:'5px 12px', borderRadius:999, fontSize:12, fontWeight:600, background: theme === 'dark' ? 'var(--ul-accent)' : 'transparent', color: theme === 'dark' ? 'var(--ul-accent-fg)' : 'var(--ul-text-muted)' }}>Oscuro</button>
+            <button onClick={() => flip('light')} style={{ border:'none', cursor:'pointer', padding:'5px 12px', borderRadius:999, fontSize:12, fontWeight:600, background: theme === 'light' ? 'var(--ul-accent)' : 'transparent', color: theme === 'light' ? 'var(--ul-accent-fg)' : 'var(--ul-text-muted)' }}>Claro</button>
           </div>
-          <button onClick={onLogout} style={{ background:'transparent', border:'1px solid #e5e4e0', borderRadius:8, padding:'6px 10px', cursor:'pointer' }}>🚪</button>
+          <div style={{ textAlign:'right' }}>
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--ul-text)' }}>{user.nombre || user.email}</div>
+            <div style={{ fontSize:11, color:'var(--ul-text-subtle)' }}>{user.rol}{user.roles_extra?.length ? ' · ' + user.roles_extra.join(', ') : ''}</div>
+          </div>
+          <button onClick={onLogout} title="Cerrar sesión" style={{ background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:8, padding:'6px 10px', cursor:'pointer', color:'var(--ul-text)' }}>↪</button>
         </div>
       </div>
     </div>
@@ -225,19 +241,19 @@ function ListaOC({ ordenes, brand, q, setQ, filtroEstatus, setFiltroEstatus, fil
         </select>
       </div>
 
-      <div style={{ background:'#fff', border:'1px solid #e5e4e0', borderRadius:12, overflow:'hidden' }}>
+      <div style={{ background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:12, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, minWidth:900 }}>
             <thead>
-              <tr style={{ background:'#fafaf7', borderBottom:'1px solid #e5e4e0' }}>
+              <tr style={{ background:'var(--ul-surface-2)', borderBottom:'1px solid var(--ul-border)' }}>
                 <Th>Folio</Th><Th>Fecha</Th><Th>Solicitante</Th><Th>Empresa</Th><Th>Tipo</Th>
                 <Th>Proveedor</Th><Th>Total</Th><Th>Estatus</Th><Th>Acciones</Th>
               </tr>
             </thead>
             <tbody>
-              {ordenes.length === 0 && <tr><td colSpan={9} style={{ padding:'40px', textAlign:'center', color:'#999' }}>Sin órdenes</td></tr>}
+              {ordenes.length === 0 && <tr><td colSpan={9} style={{ padding:'40px', textAlign:'center', color:'var(--ul-text-subtle)' }}>Sin órdenes</td></tr>}
               {ordenes.map((o: any) => (
-                <tr key={o.id} style={{ borderBottom:'1px solid #f0efeb' }}>
+                <tr key={o.id} style={{ borderBottom:'1px solid var(--ul-border)' }}>
                   <Td><strong>{o.id}</strong></Td>
                   <Td>{new Date(o.created_at).toLocaleDateString('es-MX')}</Td>
                   <Td>{o.solicitante_nombre || o.solicitante_email}</Td>
@@ -343,7 +359,7 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
   }
 
   return (
-    <div style={{ background:'#fff', border:'1px solid #e5e4e0', borderRadius:12, padding:'24px' }}>
+    <div style={{ background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:12, padding:'24px' }}>
       <h2 style={{ fontSize:18, fontWeight:700, margin:'0 0 16px' }}>Nueva Orden de Compra</h2>
 
       <Section title="Datos del solicitante">
@@ -390,7 +406,7 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
         <div style={{ overflowX:'auto', marginBottom:8 }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, minWidth:760 }}>
             <thead>
-              <tr style={{ background:'#fafaf7' }}>
+              <tr style={{ background:'var(--ul-surface-2)' }}>
                 <Th style={{ width:36 }}>#</Th>
                 <Th style={{ width:140 }}>Cantidad</Th>
                 <Th style={{ width:100 }}>Unidad</Th>
@@ -404,8 +420,8 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
             </thead>
             <tbody>
               {items.map((it, i) => (
-                <tr key={i} style={{ borderBottom:'1px solid #f0efeb' }}>
-                  <Td style={{ textAlign:'center', color:'#999' }}>{it.posicion}</Td>
+                <tr key={i} style={{ borderBottom:'1px solid var(--ul-border)' }}>
+                  <Td style={{ textAlign:'center', color:'var(--ul-text-subtle)' }}>{it.posicion}</Td>
                   <Td>
                     <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                       <button type="button" onClick={()=>stepQty(i,-1)} style={qtyBtn}>−</button>
@@ -429,7 +445,7 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
             </tbody>
           </table>
         </div>
-        <button type="button" onClick={addItem} style={{ background:'#f7f6f3', border:'1px dashed #c8c5b6', borderRadius:8, padding:'10px 16px', fontSize:13, cursor:'pointer', width:'100%' }}>+ Agregar item</button>
+        <button type="button" onClick={addItem} style={{ background:'var(--ul-bg)', border:'1px dashed #c8c5b6', borderRadius:8, padding:'10px 16px', fontSize:13, cursor:'pointer', width:'100%' }}>+ Agregar item</button>
       </Section>
 
       <Section title="Proveedor sugerido (opcional)">
@@ -454,16 +470,16 @@ function NuevaOC({ user, token, brand, catalogos, proveedores, onCreated }: any)
             <input type="checkbox" checked={aplicaIva} onChange={e=>setAplicaIva(e.target.checked)}/> Aplica IVA (16%)
           </label>
           <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:12, color:'#888' }}>Subtotal: ${subtotal.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
-            <div style={{ fontSize:12, color:'#888' }}>IVA: ${iva.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+            <div style={{ fontSize:12, color:'var(--ul-text-subtle)' }}>Subtotal: ${subtotal.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+            <div style={{ fontSize:12, color:'var(--ul-text-subtle)' }}>IVA: ${iva.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
             <div style={{ fontSize:18, fontWeight:700, color: brand.color }}>Total: ${total.toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
           </div>
         </div>
       </Section>
 
       <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-        <button type="button" disabled={submitting} onClick={() => submit(true)} style={{ background:'#f7f6f3', border:'1px solid #e5e4e0', borderRadius:8, padding:'10px 18px', cursor:'pointer' }}>Guardar borrador</button>
-        <button type="button" disabled={submitting} onClick={() => submit(false)} style={{ background: brand.color, border:'none', borderRadius:8, padding:'10px 24px', fontWeight:600, color:'#191919', cursor:'pointer' }}>{submitting ? 'Enviando...' : 'Enviar a aprobación'}</button>
+        <button type="button" disabled={submitting} onClick={() => submit(true)} style={{ background:'var(--ul-bg)', border:'1px solid var(--ul-border)', borderRadius:8, padding:'10px 18px', cursor:'pointer' }}>Guardar borrador</button>
+        <button type="button" disabled={submitting} onClick={() => submit(false)} style={{ background: brand.color, border:'none', borderRadius:8, padding:'10px 24px', fontWeight:600, color:'var(--ul-text)', cursor:'pointer' }}>{submitting ? 'Enviando...' : 'Enviar a aprobación'}</button>
       </div>
     </div>
   )
@@ -525,15 +541,15 @@ function DetailModal({ data, token, brand, user, puedeAprobar, puedeCompras, onC
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:60 }}>
-      <div style={{ background:'#fff', borderRadius:14, padding:0, maxWidth:980, width:'100%', maxHeight:'92vh', overflow:'auto' }}>
-        <div style={{ padding:'20px 24px', borderBottom:'1px solid #e5e4e0', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, background:'#fff', zIndex:1 }}>
+      <div style={{ background:'var(--ul-surface)', borderRadius:14, padding:0, maxWidth:980, width:'100%', maxHeight:'92vh', overflow:'auto' }}>
+        <div style={{ padding:'20px 24px', borderBottom:'1px solid var(--ul-border)', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, background:'var(--ul-surface)', zIndex:1 }}>
           <div>
-            <div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'.5px' }}>Orden de compra</div>
+            <div style={{ fontSize:11, color:'var(--ul-text-subtle)', textTransform:'uppercase', letterSpacing:'.5px' }}>Orden de compra</div>
             <h2 style={{ fontSize:20, fontWeight:700, margin:0 }}>{o.id}</h2>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <Badge text={ESTATUS_LABEL[o.estatus] || o.estatus} color={ESTATUS_COLOR[o.estatus] || '#888'}/>
-            <button onClick={onClose} style={{ background:'transparent', border:'1px solid #e5e4e0', borderRadius:8, padding:'6px 12px', cursor:'pointer' }}>Cerrar</button>
+            <button onClick={onClose} style={{ background:'transparent', border:'1px solid var(--ul-border)', borderRadius:8, padding:'6px 12px', cursor:'pointer' }}>Cerrar</button>
           </div>
         </div>
 
@@ -550,15 +566,15 @@ function DetailModal({ data, token, brand, user, puedeAprobar, puedeCompras, onC
             <Info label="Fecha" value={new Date(o.created_at).toLocaleString('es-MX')}/>
           </Grid>
 
-          {o.justificacion && <Section title="Justificación"><div style={{ fontSize:13, color:'#444', whiteSpace:'pre-wrap' }}>{o.justificacion}</div></Section>}
-          {o.observaciones && <Section title="Observaciones"><div style={{ fontSize:13, color:'#444', whiteSpace:'pre-wrap' }}>{o.observaciones}</div></Section>}
+          {o.justificacion && <Section title="Justificación"><div style={{ fontSize:13, color:'var(--ul-text)', whiteSpace:'pre-wrap' }}>{o.justificacion}</div></Section>}
+          {o.observaciones && <Section title="Observaciones"><div style={{ fontSize:13, color:'var(--ul-text)', whiteSpace:'pre-wrap' }}>{o.observaciones}</div></Section>}
 
           <Section title="Items">
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-              <thead><tr style={{ background:'#fafaf7' }}><Th>#</Th><Th>Cant</Th><Th>Unidad</Th><Th>Nombre</Th><Th>Descripción</Th><Th>P.Unit</Th><Th>Importe</Th></tr></thead>
+              <thead><tr style={{ background:'var(--ul-surface-2)' }}><Th>#</Th><Th>Cant</Th><Th>Unidad</Th><Th>Nombre</Th><Th>Descripción</Th><Th>P.Unit</Th><Th>Importe</Th></tr></thead>
               <tbody>
                 {items.map((it: any) => (
-                  <tr key={it.id} style={{ borderBottom:'1px solid #f0efeb' }}>
+                  <tr key={it.id} style={{ borderBottom:'1px solid var(--ul-border)' }}>
                     <Td>{it.posicion}</Td><Td>{it.cantidad}</Td><Td>{it.unidad}</Td>
                     <Td>{it.nombre}</Td><Td>{it.descripcion}</Td>
                     <Td style={{ textAlign:'right' }}>${Number(it.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits:2 })}</Td>
@@ -569,8 +585,8 @@ function DetailModal({ data, token, brand, user, puedeAprobar, puedeCompras, onC
             </table>
             <div style={{ display:'flex', justifyContent:'flex-end', marginTop:12 }}>
               <div style={{ textAlign:'right', fontSize:13 }}>
-                <div style={{ color:'#888' }}>Subtotal: ${Number(o.subtotal).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
-                <div style={{ color:'#888' }}>IVA: ${Number(o.iva).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+                <div style={{ color:'var(--ul-text-subtle)' }}>Subtotal: ${Number(o.subtotal).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+                <div style={{ color:'var(--ul-text-subtle)' }}>IVA: ${Number(o.iva).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
                 <div style={{ fontSize:18, fontWeight:700, color: brand.color }}>Total: ${Number(o.total).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
               </div>
             </div>
@@ -578,14 +594,14 @@ function DetailModal({ data, token, brand, user, puedeAprobar, puedeCompras, onC
 
           <Section title="Aprobaciones">
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:8 }}>
-              {aprobs.length === 0 && <div style={{ color:'#999', fontSize:12 }}>Sin niveles configurados</div>}
+              {aprobs.length === 0 && <div style={{ color:'var(--ul-text-subtle)', fontSize:12 }}>Sin niveles configurados</div>}
               {aprobs.map((a: any) => (
-                <div key={a.id} style={{ border:'1px solid #e5e4e0', borderRadius:8, padding:10, fontSize:11 }}>
-                  <div style={{ color:'#888', textTransform:'uppercase', letterSpacing:'.5px' }}>Nivel {a.nivel}</div>
+                <div key={a.id} style={{ border:'1px solid var(--ul-border)', borderRadius:8, padding:10, fontSize:11 }}>
+                  <div style={{ color:'var(--ul-text-subtle)', textTransform:'uppercase', letterSpacing:'.5px' }}>Nivel {a.nivel}</div>
                   <div style={{ fontWeight:600, fontSize:13, margin:'2px 0' }}>{a.nombre}</div>
-                  <div style={{ color:'#888' }}>{a.email || '—'}</div>
+                  <div style={{ color:'var(--ul-text-subtle)' }}>{a.email || '—'}</div>
                   <Badge text={(a.decision || 'pendiente').toUpperCase()} color={a.decision === 'aprobada' ? '#10b981' : a.decision === 'rechazada' ? '#ef4444' : '#888'}/>
-                  {a.comentario && <div style={{ fontSize:11, marginTop:4, color:'#555' }}>"{a.comentario}"</div>}
+                  {a.comentario && <div style={{ fontSize:11, marginTop:4, color:'var(--ul-text-muted)' }}>"{a.comentario}"</div>}
                 </div>
               ))}
             </div>
@@ -593,11 +609,11 @@ function DetailModal({ data, token, brand, user, puedeAprobar, puedeCompras, onC
 
           <Section title="Historial">
             {history.map((h: any) => (
-              <div key={h.id} style={{ display:'flex', gap:12, padding:'6px 0', fontSize:12, borderTop:'1px solid #f0efeb' }}>
-                <div style={{ color:'#888', minWidth:140 }}>{new Date(h.created_at).toLocaleString('es-MX')}</div>
+              <div key={h.id} style={{ display:'flex', gap:12, padding:'6px 0', fontSize:12, borderTop:'1px solid var(--ul-border)' }}>
+                <div style={{ color:'var(--ul-text-subtle)', minWidth:140 }}>{new Date(h.created_at).toLocaleString('es-MX')}</div>
                 <div style={{ minWidth:120, fontWeight:600 }}>{h.action}</div>
-                <div style={{ color:'#444', flex:1 }}>{h.note || `${h.estatus_prev || ''} → ${h.estatus_new || ''}`}</div>
-                <div style={{ color:'#888' }}>{h.actor_email}</div>
+                <div style={{ color:'var(--ul-text)', flex:1 }}>{h.note || `${h.estatus_prev || ''} → ${h.estatus_new || ''}`}</div>
+                <div style={{ color:'var(--ul-text-subtle)' }}>{h.actor_email}</div>
               </div>
             ))}
           </Section>
@@ -634,7 +650,7 @@ function AdminPanel({ token, brand, settings, setSettings, niveles, setNiveles, 
           ['presupuestos','Presupuestos'],
         ].map(([k,label]) => (
           <button key={k} onClick={()=>setSub(k as any)} style={{
-            padding:'8px 14px', borderRadius:8, border:'1px solid #e5e4e0',
+            padding:'8px 14px', borderRadius:8, border:'1px solid var(--ul-border)',
             background: sub === k ? brand.color : '#fff', fontWeight: sub === k ? 700 : 500, cursor:'pointer', fontSize:13,
           }}>{label}</button>
         ))}
@@ -662,7 +678,7 @@ function AdminSettings({ token, brand, settings, setSettings }: any) {
 
   return (
     <div style={card}>
-      <h3 style={h3}>Emails institucionales <span style={{ fontSize:11, color:'#888', fontWeight:400 }}>(opcionales — todos pueden quedar vacíos)</span></h3>
+      <h3 style={h3}>Emails institucionales <span style={{ fontSize:11, color:'var(--ul-text-subtle)', fontWeight:400 }}>(opcionales — todos pueden quedar vacíos)</span></h3>
       <Grid cols={3}>
         <Field label="Compras"><input value={settings.COMPRAS_EMAIL_COMPRAS || ''} onChange={e=>set('COMPRAS_EMAIL_COMPRAS', e.target.value)} style={input}/></Field>
         <Field label="Jefe Compras Nacionales *"><input value={settings.COMPRAS_EMAIL_JEFE_COMPRAS_NACIONALES || ''} onChange={e=>set('COMPRAS_EMAIL_JEFE_COMPRAS_NACIONALES', e.target.value)} style={input}/></Field>
@@ -672,7 +688,7 @@ function AdminSettings({ token, brand, settings, setSettings }: any) {
         <Field label="Contabilidad"><input value={settings.COMPRAS_EMAIL_CONTABILIDAD || ''} onChange={e=>set('COMPRAS_EMAIL_CONTABILIDAD', e.target.value)} style={input}/></Field>
         <Field label="Almacén"><input value={settings.COMPRAS_EMAIL_ALMACEN || ''} onChange={e=>set('COMPRAS_EMAIL_ALMACEN', e.target.value)} style={input}/></Field>
       </Grid>
-      <div style={{ fontSize:11, color:'#888', marginTop:4 }}>* Los marcados con asterisco influyen en routing de aprobación PT-COMP, pero no son obligatorios.</div>
+      <div style={{ fontSize:11, color:'var(--ul-text-subtle)', marginTop:4 }}>* Los marcados con asterisco influyen en routing de aprobación PT-COMP, pero no son obligatorios.</div>
 
       <h3 style={h3}>Folio</h3>
       <Grid cols={4}>
@@ -692,7 +708,7 @@ function AdminSettings({ token, brand, settings, setSettings }: any) {
 
       <h3 style={h3}>Ventanas por tipo de compra</h3>
       {['RECURRENTE','NO_RECURRENTE','URGENTE'].map(k => (
-        <div key={k} style={{ border:'1px solid #e5e4e0', borderRadius:8, padding:12, marginBottom:8 }}>
+        <div key={k} style={{ border:'1px solid var(--ul-border)', borderRadius:8, padding:12, marginBottom:8 }}>
           <div style={{ fontWeight:600, marginBottom:8, textTransform:'capitalize' }}>{k.replace('_',' ').toLowerCase()}</div>
           <Grid cols={4}>
             <Field label="Día inicio"><input value={settings[`COMPRAS_VENTANA_${k}_DIAS_INICIO`] || ''} onChange={e=>set(`COMPRAS_VENTANA_${k}_DIAS_INICIO`, e.target.value)} style={input}/></Field>
@@ -767,10 +783,10 @@ function AdminNiveles({ token, brand, niveles, setNiveles }: any) {
         <button onClick={()=>setEdit({ nivel: (niveles[niveles.length-1]?.nivel || 0) + 1, nombre:'', monto_hasta:0, email:'', puesto:'', activo:true })} style={btn(brand.color,'#191919')}>+ Nuevo</button>
       </div>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-        <thead><tr style={{ background:'#fafaf7' }}><Th>Nivel</Th><Th>Nombre</Th><Th>Monto hasta</Th><Th>Email</Th><Th>Puesto</Th><Th>Activo</Th><Th></Th></tr></thead>
+        <thead><tr style={{ background:'var(--ul-surface-2)' }}><Th>Nivel</Th><Th>Nombre</Th><Th>Monto hasta</Th><Th>Email</Th><Th>Puesto</Th><Th>Activo</Th><Th></Th></tr></thead>
         <tbody>
           {niveles.map((n: any) => (
-            <tr key={n.id} style={{ borderBottom:'1px solid #f0efeb' }}>
+            <tr key={n.id} style={{ borderBottom:'1px solid var(--ul-border)' }}>
               <Td>{n.nivel}</Td><Td>{n.nombre}</Td>
               <Td>${Number(n.monto_hasta || 0).toLocaleString('es-MX')}</Td>
               <Td>{n.email || '—'}</Td><Td>{n.puesto || '—'}</Td>
@@ -831,12 +847,12 @@ function AdminProveedores({ token, brand, proveedores, setProveedores }: any) {
         </div>
       </div>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-        <thead><tr style={{ background:'#fafaf7' }}><Th>RFC</Th><Th>Razón social</Th><Th>Contacto</Th><Th>Categoría</Th><Th>Activo</Th><Th></Th></tr></thead>
+        <thead><tr style={{ background:'var(--ul-surface-2)' }}><Th>RFC</Th><Th>Razón social</Th><Th>Contacto</Th><Th>Categoría</Th><Th>Activo</Th><Th></Th></tr></thead>
         <tbody>
           {filtrados.map((p: any) => (
-            <tr key={p.id} style={{ borderBottom:'1px solid #f0efeb' }}>
+            <tr key={p.id} style={{ borderBottom:'1px solid var(--ul-border)' }}>
               <Td>{p.rfc}</Td><Td>{p.razon_social}</Td>
-              <Td>{p.contacto_nombre || '—'} {p.contacto_email && <span style={{ color:'#888', fontSize:11 }}>· {p.contacto_email}</span>}</Td>
+              <Td>{p.contacto_nombre || '—'} {p.contacto_email && <span style={{ color:'var(--ul-text-subtle)', fontSize:11 }}>· {p.contacto_email}</span>}</Td>
               <Td>{p.categoria}</Td><Td>{p.activo ? '✓' : '✗'}</Td>
               <Td><button onClick={()=>setEdit(p)} style={smBtn}>Editar</button></Td>
             </tr>
@@ -891,12 +907,12 @@ function AdminUsuarios({ token, brand }: any) {
   return (
     <div style={card}>
       <h3 style={h3}>Usuarios y roles</h3>
-      <div style={{ fontSize:12, color:'#888', marginBottom:8 }}>Todos los usuarios tienen rol base USUARIO. Asigna roles adicionales: HELPDESK · COMPRAS · APROBADOR · ADMIN.</div>
+      <div style={{ fontSize:12, color:'var(--ul-text-subtle)', marginBottom:8 }}>Todos los usuarios tienen rol base USUARIO. Asigna roles adicionales: HELPDESK · COMPRAS · APROBADOR · ADMIN.</div>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-        <thead><tr style={{ background:'#fafaf7' }}><Th>Email</Th><Th>Nombre</Th><Th>Depto</Th><Th>Rol principal</Th><Th>Roles extra</Th><Th>Estado</Th><Th></Th></tr></thead>
+        <thead><tr style={{ background:'var(--ul-surface-2)' }}><Th>Email</Th><Th>Nombre</Th><Th>Depto</Th><Th>Rol principal</Th><Th>Roles extra</Th><Th>Estado</Th><Th></Th></tr></thead>
         <tbody>
           {users.map(u => (
-            <tr key={u.id} style={{ borderBottom:'1px solid #f0efeb' }}>
+            <tr key={u.id} style={{ borderBottom:'1px solid var(--ul-border)' }}>
               <Td>{u.email}</Td><Td>{u.nombre || '—'}</Td><Td>{u.departamento || '—'}</Td>
               <Td>{u.rol}</Td>
               <Td>{Array.isArray(u.roles_extra) && u.roles_extra.length ? u.roles_extra.join(', ') : '—'}</Td>
@@ -980,10 +996,10 @@ function AdminPdfs({ token, brand }: any) {
         <button onClick={purgar} disabled={busy} style={btn('#ef4444','#fff')}>{busy ? 'Purgando...' : '🗑 Ejecutar purga por retención'}</button>
       </div>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-        <thead><tr style={{ background:'#fafaf7' }}><Th>Folio</Th><Th>Tamaño</Th><Th>Fecha</Th><Th></Th></tr></thead>
+        <thead><tr style={{ background:'var(--ul-surface-2)' }}><Th>Folio</Th><Th>Tamaño</Th><Th>Fecha</Th><Th></Th></tr></thead>
         <tbody>
           {pdfs.map(p => (
-            <tr key={p.filename} style={{ borderBottom:'1px solid #f0efeb' }}>
+            <tr key={p.filename} style={{ borderBottom:'1px solid var(--ul-border)' }}>
               <Td><strong>{p.folio}</strong></Td>
               <Td>{Math.round((p.size || 0) / 1024)} KB</Td>
               <Td>{p.created_at ? new Date(p.created_at).toLocaleString('es-MX') : '—'}</Td>
@@ -1020,13 +1036,13 @@ function AdminPresupuestos({ token, brand, catalogos }: any) {
         <input type="number" value={year} onChange={e=>setYear(Number(e.target.value))} style={{ ...input, width:120 }}/>
       </div>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-        <thead><tr style={{ background:'#fafaf7' }}><Th>Departamento</Th><Th>Mes</Th><Th>Monto</Th><Th>Gastado</Th><Th>Restante</Th><Th></Th></tr></thead>
+        <thead><tr style={{ background:'var(--ul-surface-2)' }}><Th>Departamento</Th><Th>Mes</Th><Th>Monto</Th><Th>Gastado</Th><Th>Restante</Th><Th></Th></tr></thead>
         <tbody>
           {departamentos.flatMap((d: any) =>
             Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
               const p = data.find(x => x.departamento === d.key && x.mes === mes) || { departamento: d.key, anio: year, mes, monto: 0, gastado: 0 }
               return (
-                <tr key={`${d.key}-${mes}`} style={{ borderBottom:'1px solid #f0efeb' }}>
+                <tr key={`${d.key}-${mes}`} style={{ borderBottom:'1px solid var(--ul-border)' }}>
                   <Td>{d.label}</Td>
                   <Td>{['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mes-1]}</Td>
                   <Td><input type="number" defaultValue={p.monto} onBlur={e => save({ ...p, monto: Number(e.target.value) })} style={{ ...input, width:120, padding:'4px 6px' }}/></Td>
@@ -1044,11 +1060,11 @@ function AdminPresupuestos({ token, brand, catalogos }: any) {
 }
 
 // ─── UI Primitives ───────────────────────────────────────────
-const input: React.CSSProperties = { width:'100%', padding:'8px 12px', fontSize:13, borderRadius:8, border:'1px solid #e5e4e0', background:'#fff', color:'#191919', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }
-const qtyBtn: React.CSSProperties = { width:24, height:24, border:'1px solid #e5e4e0', borderRadius:6, background:'#f7f6f3', cursor:'pointer', fontSize:13, padding:0, fontWeight:700 }
+const input: React.CSSProperties = { width:'100%', padding:'8px 12px', fontSize:13, borderRadius:8, border:'1px solid var(--ul-border)', background:'var(--ul-surface)', color:'var(--ul-text)', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }
+const qtyBtn: React.CSSProperties = { width:24, height:24, border:'1px solid var(--ul-border)', borderRadius:6, background:'var(--ul-bg)', cursor:'pointer', fontSize:13, padding:0, fontWeight:700 }
 const smBtn: React.CSSProperties = { background:'transparent', border:'none', cursor:'pointer', color:'#3b82f6', fontSize:12, padding:'4px 8px' }
-const card: React.CSSProperties = { background:'#fff', border:'1px solid #e5e4e0', borderRadius:12, padding:'20px' }
-const h3: React.CSSProperties = { fontSize:14, fontWeight:700, color:'#191919', margin:'16px 0 8px' }
+const card: React.CSSProperties = { background:'var(--ul-surface)', border:'1px solid var(--ul-border)', borderRadius:12, padding:'20px' }
+const h3: React.CSSProperties = { fontSize:14, fontWeight:700, color:'var(--ul-text)', margin:'16px 0 8px' }
 function btn(bg: string, fg: string, border: string = bg): React.CSSProperties {
   return { background:bg, color:fg, border:`1px solid ${border}`, borderRadius:8, padding:'8px 14px', fontWeight:600, fontSize:13, cursor:'pointer' }
 }
@@ -1056,7 +1072,7 @@ function btn(bg: string, fg: string, border: string = bg): React.CSSProperties {
 function Section({ title, children }: any) {
   return (
     <div style={{ marginBottom:16 }}>
-      <div style={{ fontSize:11, fontWeight:700, color:'#888', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8, paddingBottom:4, borderBottom:'1px solid #f0efeb' }}>{title}</div>
+      <div style={{ fontSize:11, fontWeight:700, color:'var(--ul-text-subtle)', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8, paddingBottom:4, borderBottom:'1px solid var(--ul-border)' }}>{title}</div>
       {children}
     </div>
   )
@@ -1064,7 +1080,7 @@ function Section({ title, children }: any) {
 function Field({ label, children }: any) {
   return (
     <div style={{ marginBottom:10 }}>
-      <label style={{ fontSize:11, fontWeight:600, color:'#888', textTransform:'uppercase', letterSpacing:'.5px', display:'block', marginBottom:4 }}>{label}</label>
+      <label style={{ fontSize:11, fontWeight:600, color:'var(--ul-text-subtle)', textTransform:'uppercase', letterSpacing:'.5px', display:'block', marginBottom:4 }}>{label}</label>
       {children}
     </div>
   )
@@ -1073,21 +1089,21 @@ function Grid({ cols, children }: any) {
   return <div style={{ display:'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap:'8px' }}>{children}</div>
 }
 function Th({ children, style }: any) {
-  return <th style={{ padding:'10px 12px', textAlign:'left', fontSize:11, fontWeight:600, color:'#888', textTransform:'uppercase', letterSpacing:'.5px', ...style }}>{children}</th>
+  return <th style={{ padding:'10px 12px', textAlign:'left', fontSize:11, fontWeight:600, color:'var(--ul-text-subtle)', textTransform:'uppercase', letterSpacing:'.5px', ...style }}>{children}</th>
 }
 function Td({ children, style }: any) {
-  return <td style={{ padding:'10px 12px', fontSize:13, color:'#191919', ...style }}>{children}</td>
+  return <td style={{ padding:'10px 12px', fontSize:13, color:'var(--ul-text)', ...style }}>{children}</td>
 }
 function Badge({ text, color }: any) {
   return <span style={{ display:'inline-block', padding:'2px 8px', background: color + '22', color, borderRadius:12, fontSize:11, fontWeight:600 }}>{text}</span>
 }
 function Info({ label, value }: any) {
-  return <div><div style={{ fontSize:11, color:'#888', textTransform:'uppercase', letterSpacing:'.5px' }}>{label}</div><div style={{ fontSize:14, color:'#191919' }}>{value || '—'}</div></div>
+  return <div><div style={{ fontSize:11, color:'var(--ul-text-subtle)', textTransform:'uppercase', letterSpacing:'.5px' }}>{label}</div><div style={{ fontSize:14, color:'var(--ul-text)' }}>{value || '—'}</div></div>
 }
 function Modal({ children, onClose, title, wide }: any) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:70 }}>
-      <div style={{ background:'#fff', borderRadius:14, padding:24, maxWidth: wide ? 800 : 520, width:'100%', maxHeight:'92vh', overflow:'auto' }}>
+      <div style={{ background:'var(--ul-surface)', borderRadius:14, padding:24, maxWidth: wide ? 800 : 520, width:'100%', maxHeight:'92vh', overflow:'auto' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
           <h2 style={{ fontSize:18, fontWeight:700, margin:0 }}>{title}</h2>
           <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:18 }}>×</button>
