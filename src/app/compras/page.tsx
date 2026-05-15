@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 
 type User = { email: string; nombre?: string; rol: string; roles_extra?: string[]; puesto?: string; departamento?: string; telefono?: string }
 type Item = { posicion: number; cantidad: number; unidad: string; nombre: string; descripcion: string; marca_modelo: string; observaciones: string; precio_unitario: number }
@@ -129,42 +130,46 @@ export default function ComprasPage() {
     ['admin', 'Administración', esAdmin],
   ]
 
+  const shellNav = [{
+    title: 'COMPRAS',
+    items: tabs.filter(([_,__,visible]) => visible).map(([k, label]) => ({
+      key: k as string,
+      label: label as string,
+      icon: k === 'mis' ? '📋' : k === 'nueva' ? '+' : k === 'pendientes' ? '⏳' : k === 'gestion' ? '⚙' : '🛠',
+      onClick: () => setTab(k as Tab),
+    })),
+  }]
+
   return (
-    <div style={{ minHeight:'100vh', background:'var(--ul-bg)', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
-      <Header user={user} brand={brand} onHome={() => router.push('/portal')} onLogout={() => { localStorage.removeItem('auth_token'); router.replace('/login') }}/>
-
-      <div style={{ background:'var(--ul-surface)', borderBottom:'1px solid var(--ul-border)' }}>
-        <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 24px', display:'flex', gap:8, overflowX:'auto' }}>
-          {tabs.filter(([_,__,visible]) => visible).map(([k, label]) => (
-            <button key={k} onClick={() => setTab(k)} style={{
-              padding:'14px 16px', background:'none', border:'none', borderBottom: tab === k ? `2px solid ${brand.color}` : '2px solid transparent',
-              fontSize:14, fontWeight: tab === k ? 700 : 500, color: tab === k ? 'var(--ul-text)' : 'var(--ul-text-muted)', cursor:'pointer', whiteSpace:'nowrap',
-            }}>{label}</button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ maxWidth:1280, margin:'0 auto', padding:'24px' }}>
-        {tab === 'nueva' && <NuevaOC user={user} token={token} brand={brand} catalogos={catalogos} proveedores={proveedores} puedeCompras={puedeCompras} onCreated={() => { reloadOrdenes(); setTab('mis') }}/>}
-        {(tab === 'mis' || tab === 'pendientes' || tab === 'gestion') && (
-          <ListaOC
-            ordenes={ordenesFiltradas} brand={brand}
-            q={q} setQ={setQ} filtroEstatus={filtroEstatus} setFiltroEstatus={setFiltroEstatus}
-            filtroTipo={filtroTipo} setFiltroTipo={setFiltroTipo}
-            catalogos={catalogos}
-            onOpen={openDetail}
-            puedeCompras={puedeCompras} puedeAprobar={puedeAprobar}
-          />
-        )}
-        {tab === 'admin' && esAdmin && (
-          <AdminPanel
-            token={token} brand={brand} settings={settings} setSettings={setSettings}
-            niveles={niveles} setNiveles={setNiveles} proveedores={proveedores} setProveedores={setProveedores}
-            catalogos={catalogos} setCatalogos={setCatalogos} reloadOrdenes={reloadOrdenes}
-          />
-        )}
-      </div>
-
+    <AppShell
+      app="compras"
+      appLabel={(brand.name || 'COMPRAS').toUpperCase().slice(0, 14)}
+      appVersion="v3.0.0"
+      appLogoUrl={brand.logo}
+      nav={shellNav}
+      activeKey={tab}
+      user={user}
+      token={token}
+      showSearch={false}
+    >
+      {tab === 'nueva' && <NuevaOC user={user} token={token} brand={brand} catalogos={catalogos} proveedores={proveedores} puedeCompras={puedeCompras} onCreated={() => { reloadOrdenes(); setTab('mis') }}/>}
+      {(tab === 'mis' || tab === 'pendientes' || tab === 'gestion') && (
+        <ListaOC
+          ordenes={ordenesFiltradas} brand={brand}
+          q={q} setQ={setQ} filtroEstatus={filtroEstatus} setFiltroEstatus={setFiltroEstatus}
+          filtroTipo={filtroTipo} setFiltroTipo={setFiltroTipo}
+          catalogos={catalogos}
+          onOpen={openDetail}
+          puedeCompras={puedeCompras} puedeAprobar={puedeAprobar}
+        />
+      )}
+      {tab === 'admin' && esAdmin && (
+        <AdminPanel
+          token={token} brand={brand} settings={settings} setSettings={setSettings}
+          niveles={niveles} setNiveles={setNiveles} proveedores={proveedores} setProveedores={setProveedores}
+          catalogos={catalogos} setCatalogos={setCatalogos} reloadOrdenes={reloadOrdenes}
+        />
+      )}
       {detail && (
         <DetailModal
           data={detail} token={token} brand={brand} user={user}
@@ -173,7 +178,7 @@ export default function ComprasPage() {
           onUpdated={async () => { const r = await fetch(`/api/compras/ordenes/${detail.orden.id}`, { headers: { Authorization: `Bearer ${token}` }}).then(r=>r.json()); if (r.ok) setDetail(r); reloadOrdenes() }}
         />
       )}
-    </div>
+    </AppShell>
   )
 }
 

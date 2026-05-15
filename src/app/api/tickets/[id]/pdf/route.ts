@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import { validateToken, requireRoles, getToken } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { rol } = await validateToken(getToken(req))
-    requireRoles(rol, ['HELPDESK','ADMIN'])
-    const { data: t } = await supabase.from('tickets').select('*').eq('id', params.id).single()
+    const { id } = await params
+    const { rol, rolesExtra } = await validateToken(getToken(req))
+    requireRoles(rol, ['HELPDESK','ADMIN'], rolesExtra)
+    const { data: t } = await supabase.from('tickets').select('*').eq('id', id).single()
     if (!t) return NextResponse.json({ ok: false, error: 'No encontrado' }, { status: 404 })
     const fmt = (d: string) => d ? new Date(d).toLocaleString('es-MX') : '—'
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${t.id} — Resolución</title>

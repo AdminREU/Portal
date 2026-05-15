@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 
 type Theme='light'|'dark'
 type View='dashboard'|'kanban'|'tickets'|'users'|'kb'|'config'|'detail'|'nuevo'
@@ -377,68 +378,64 @@ export default function HelpdeskPage(){
   const helpdesk_users=users.filter(u=>['HELPDESK','ADMIN'].includes(u.rol))
   const maxArea=Math.max(...statsByArea.map(s=>s.count),1)
 
-  return(
-    <div style={{display:'flex',height:'100vh',background:bg,fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',color:text}}>
-      {/* Sidebar */}
-      <div style={{width:'220px',background:surface,borderRight:`1px solid ${border}`,display:'flex',flexDirection:'column',flexShrink:0}}>
-        <div style={{padding:'20px 16px 16px',borderBottom:`1px solid ${border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-            {brandingLogo
-              ?<img src={brandingLogo} alt="logo" style={{width:'28px',height:'28px',borderRadius:'6px',objectFit:'cover'}}/>
-              :<div style={{width:'28px',height:'28px',borderRadius:'6px',background:brandingColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:700,color:'#fff'}}>{brandingName.charAt(0).toUpperCase()}</div>
-            }
-            <span style={{fontSize:'13px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{brandingName}</span>
-          </div>
-        </div>
-        <nav style={{flex:1,padding:'8px'}}>
-          {NAV.map(item=>(
-            <div key={item.key} onClick={()=>switchView(item.key as View)} style={{display:'flex',alignItems:'center',gap:'8px',padding:'7px 10px',borderRadius:'6px',cursor:'pointer',marginBottom:'2px',fontSize:'13px',fontWeight:view===item.key?500:400,background:view===item.key?('var(--ul-surface-hover)'):'transparent',color:view===item.key?text:muted}}>
-              <span>{item.icon}</span>{item.label}
-            </div>
-          ))}
-        </nav>
-        {/* Equipo en línea */}
-        {agents.length>0&&<div style={{padding:'10px 16px',borderTop:`1px solid ${border}`}}>
-          <div style={{fontSize:'10px',color:muted,marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.5px',fontWeight:600}}>Equipo · {agents.length}</div>
-          <div style={{display:'flex',flexDirection:'column',gap:'4px',maxHeight:'140px',overflowY:'auto'}}>
-            {agents.slice(0,8).map(a=>{
-              const s=getStatusInfo(a.agent_status)
-              return<div key={a.email} onClick={()=>setSelectedAgent(a)} style={{display:'flex',alignItems:'center',gap:'8px',padding:'5px 8px',borderRadius:'6px',cursor:'pointer',transition:'background 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background=hover} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                <div style={{width:'8px',height:'8px',borderRadius:'50%',background:s.color,flexShrink:0,boxShadow:`0 0 0 2px ${s.color}33`}}/>
-                <span style={{fontSize:'12px',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:text}}>{a.nombre||a.email.split('@')[0]}</span>
-                {a.agent_status_detail&&<span style={{fontSize:'9px',color:muted,opacity:0.6}}>···</span>}
-              </div>
-            })}
-          </div>
-        </div>}
+  // Construir nav para AppShell con onClick para cambiar de view
+  const shellNav = [{
+    title: esTecnico ? 'PRINCIPAL' : 'TICKETS',
+    items: NAV.map(item => ({
+      key: item.key,
+      label: item.label,
+      icon: item.icon,
+      onClick: () => switchView(item.key as View),
+    })),
+  }]
 
-        {/* Mi estado (solo técnicos / admin) */}
-        {esTecnico && <div style={{padding:'12px 16px',borderTop:`1px solid ${border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
-            <div style={{width:'10px',height:'10px',borderRadius:'50%',background:getStatusInfo(agentStatus).color,flexShrink:0,boxShadow:`0 0 0 3px ${getStatusInfo(agentStatus).color}33`}}/>
-            <select value={agentStatus} onChange={e=>setAgentStatus(e.target.value)} style={{...inp,flex:1,fontSize:'12px',padding:'6px 8px'}}>
-              {agentStatuses.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
-          </div>
-          <textarea
+  const shellUser = {
+    email: userEmail,
+    nombre: '',
+    rol: userRol,
+    roles_extra: userRolesExtra,
+  }
+
+  return(
+    <AppShell
+      app="helpdesk"
+      appLabel={(brandingName || 'HELPDESK').toUpperCase().slice(0, 14)}
+      appVersion="v3.0.0"
+      appLogoUrl={brandingLogo}
+      nav={shellNav}
+      activeKey={view}
+      user={shellUser}
+      token={token}
+      showSearch={false}
+    >
+      <div style={{color:text}}>
+
+        {/* Mi estado del técnico (compacto, en parte superior del content) */}
+        {esTecnico && <div style={{background:'var(--ul-surface)',border:'1px solid var(--ul-border)',borderRadius:10,padding:'10px 14px',marginBottom:18,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div style={{width:10,height:10,borderRadius:'50%',background:getStatusInfo(agentStatus).color,flexShrink:0,boxShadow:`0 0 0 3px ${getStatusInfo(agentStatus).color}33`}}/>
+          <div style={{fontSize:11,color:muted,textTransform:'uppercase',letterSpacing:'.5px',fontWeight:700}}>Mi estado</div>
+          <select value={agentStatus} onChange={e=>setAgentStatus(e.target.value)} style={{...inp,flex:'0 0 140px',fontSize:12,padding:'6px 8px'}}>
+            {agentStatuses.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+          <input
             value={agentDetail}
             onChange={e=>{setAgentDetail(e.target.value);setAgentDetailDirty(true)}}
             onBlur={()=>{if(agentDetailDirty)saveAgentDetail()}}
-            placeholder="¿En qué estás trabajando?"
-            style={{...inp,minHeight:'42px',fontSize:'11px',resize:'none',padding:'6px 8px',lineHeight:1.4,marginBottom:'8px'}}
+            placeholder="¿En qué estás trabajando? (opcional)"
+            style={{...inp,flex:'1 1 200px',fontSize:12,padding:'6px 10px'}}
           />
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontSize:'11px',color:muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'140px'}}>{userEmail}</div>
-            <button onClick={toggleTheme} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px',opacity:0.6}}>{d?'☀️':'🌙'}</button>
-          </div>
+          {agents.length>0 && <div style={{fontSize:11,color:muted,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            <span style={{textTransform:'uppercase',letterSpacing:'.5px',fontWeight:700}}>Equipo:</span>
+            {agents.slice(0,5).map(a=>{
+              const s=getStatusInfo(a.agent_status)
+              return <span key={a.email} onClick={()=>setSelectedAgent(a)} title={a.nombre||a.email} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:999,background:'var(--ul-surface-2)',cursor:'pointer',fontSize:11}}>
+                <span style={{width:7,height:7,borderRadius:'50%',background:s.color}}/>
+                {(a.nombre||a.email).split('@')[0].split(' ')[0]}
+              </span>
+            })}
+            {agents.length>5 && <span style={{opacity:.6}}>+{agents.length-5}</span>}
+          </div>}
         </div>}
-        {!esTecnico && <div style={{padding:'12px 16px',borderTop:`1px solid ${border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{fontSize:'11px',color:muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'140px'}}>{userEmail}</div>
-          <button onClick={toggleTheme} style={{background:'none',border:'none',cursor:'pointer',fontSize:'14px',opacity:0.6}}>{d?'☀️':'🌙'}</button>
-        </div>}
-      </div>
-
-      <div style={{flex:1,overflow:'auto',padding:'28px'}}>
 
         {/* DASHBOARD */}
         {view==='dashboard'&&<div>
@@ -973,7 +970,7 @@ export default function HelpdeskPage(){
           </div>
         </div>}
       </div>
-    </div>
+    </AppShell>
   )
 }
 
