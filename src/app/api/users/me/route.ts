@@ -19,7 +19,7 @@ export async function PATCH(req: Request) {
   try {
     const u = await validateToken(getToken(req))
     const body = await req.json()
-    const allow = ['nombre','puesto','departamento','telefono']  // el usuario puede editar su propio perfil (NO roles)
+    const allow = ['nombre','puesto','departamento','telefono','foto_url']  // el usuario puede editar su propio perfil (NO roles)
     const upd: any = {}
     for (const k of allow) if (body[k] !== undefined) upd[k] = body[k]
     await supabase.from('users').update(upd).eq('email', u.email)

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Theme='light'|'dark'
-type View='dashboard'|'kanban'|'tickets'|'users'|'kb'|'config'|'detail'
+type View='dashboard'|'kanban'|'tickets'|'users'|'kb'|'config'|'detail'|'nuevo'
 interface CatSubcategoria{label:string;peticiones:string[]}
 interface CatCategoria{label:string;subcategorias:CatSubcategoria[]}
 interface MotivoCierre{key:string;label:string;color:string}
@@ -367,11 +367,12 @@ export default function HelpdeskPage(){
         {key:'dashboard',label:'Dashboard',icon:'◻'},
         {key:'kanban',label:'Kanban',icon:'⊞'},
         {key:'tickets',label:'Tickets',icon:'☰'},
+        {key:'nuevo',label:'Nuevo ticket',icon:'+'},
         ...(esAdminHd ? [{key:'users',label:'Usuarios',icon:'◎'},{key:'kb',label:'KB',icon:'◈'},{key:'config',label:'Config',icon:'⚙'}] : []),
       ]
     : [
-        {key:'dashboard',label:'Mis tickets',icon:'◻'},
-        {key:'tickets',label:'Crear ticket',icon:'+'},
+        {key:'tickets',label:'Mis tickets',icon:'☰'},
+        {key:'nuevo',label:'Crear ticket',icon:'+'},
       ]
   const helpdesk_users=users.filter(u=>['HELPDESK','ADMIN'].includes(u.rol))
   const maxArea=Math.max(...statsByArea.map(s=>s.count),1)
@@ -550,6 +551,17 @@ export default function HelpdeskPage(){
             </tbody></table></div>
           </div>
         </div>}
+
+        {/* NUEVO TICKET */}
+        {view==='nuevo' && <NuevoTicket
+          token={token}
+          esTecnico={esTecnico}
+          userEmail={userEmail}
+          users={users}
+          catalogs={catalogs}
+          surface={surface} border={border} text={text} muted={muted} inp={inp} btn={btn} btnSec={btnSec}
+          onCreated={() => { setView(esTecnico ? 'tickets' : 'tickets'); loadAllTickets(); loadDashboard() }}
+        />}
 
         {/* DETAIL */}
         {view==='detail'&&currentTicket&&<div>
@@ -960,6 +972,150 @@ export default function HelpdeskPage(){
             </div>
           </div>
         </div>}
+      </div>
+    </div>
+  )
+}
+
+/* ============================================================
+   COMPONENTE: Crear Nuevo Ticket
+   - USUARIO normal: crea ticket en su propio nombre
+   - HELPDESK/ADMIN: puede crear en nombre de otro usuario
+   ============================================================ */
+function NuevoTicket({ token, esTecnico, userEmail, users, catalogs, surface, border, text, muted, inp, btn, btnSec, onCreated }: any) {
+  const [asunto, setAsunto] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [area, setArea] = useState('')
+  const [categoria, setCategoria] = useState('')
+  const [subcategoria, setSubcategoria] = useState('')
+  const [servicio, setServicio] = useState('')
+  const [prioridad, setPrioridad] = useState('MEDIA')
+  const [enNombreDe, setEnNombreDe] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const areas: string[] = catalogs.areas || []
+  const categorias: any[] = catalogs.categorias || []
+  const cat = categorias.find((c: any) => c.label === categoria)
+  const subs = cat?.subcategorias || []
+  const sub = subs.find((s: any) => s.label === subcategoria)
+  const peticiones: string[] = sub?.peticiones || []
+
+  async function submit() {
+    setError('')
+    if (!asunto.trim()) return setError('Asunto requerido')
+    if (!descripcion.trim()) return setError('Descripción requerida')
+    setSubmitting(true)
+    try {
+      const body: any = { asunto, descripcion, area, categoria, subcategoria, servicio, prioridad }
+      if (esTecnico && enNombreDe.trim()) body.usuario_email = enNombreDe.trim().toLowerCase()
+      const r = await fetch('/api/tickets', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      }).then(r => r.json())
+      if (!r.ok) throw new Error(r.error || 'Error al crear ticket')
+      alert(`Ticket creado: ${r.ticket?.id || ''}`)
+      setAsunto(''); setDescripcion(''); setArea(''); setCategoria(''); setSubcategoria(''); setServicio(''); setPrioridad('MEDIA'); setEnNombreDe('')
+      onCreated()
+    } catch (e: any) { setError(e.message) } finally { setSubmitting(false) }
+  }
+
+  const fieldL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: muted, textTransform: 'uppercase', letterSpacing: '.5px', display: 'block', marginBottom: 5 }
+
+  return (
+    <div style={{ maxWidth: 880 }}>
+      <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: text }}>Nuevo ticket</div>
+      <div style={{ fontSize: 12, color: muted, marginBottom: 18 }}>
+        {esTecnico
+          ? 'Describe el problema. Puedes crearlo en tu nombre o en nombre de otro usuario (útil para registrar reportes telefónicos o de usuarios foráneos sin acceso).'
+          : 'Describe tu problema o solicitud de soporte. Te notificaremos por correo cuando sea atendido.'}
+      </div>
+
+      <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: 22 }}>
+        {esTecnico && (
+          <div style={{ marginBottom: 16, padding: '12px 14px', background: 'var(--ul-surface-2)', borderRadius: 8, border: '1px dashed var(--ul-border)' }}>
+            <label style={fieldL}>Crear en nombre de (opcional — vacío = en tu nombre)</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                value={enNombreDe}
+                onChange={e => setEnNombreDe(e.target.value)}
+                placeholder="email@ultralam.com.mx"
+                list="users-list"
+                style={{ ...inp, flex: '1 1 240px' }}
+              />
+              <datalist id="users-list">
+                {(users || []).map((u: any) => <option key={u.id} value={u.email}>{u.nombre || u.email}</option>)}
+              </datalist>
+              {enNombreDe && <button onClick={() => setEnNombreDe('')} style={btnSec}>Limpiar</button>}
+            </div>
+            {enNombreDe && (
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ul-accent)' }}>
+                ⓘ El ticket aparecerá como solicitado por <strong>{enNombreDe}</strong>. {userEmail ? `Tú (${userEmail}) figurarás en el historial como creador.` : ''}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={fieldL}>Área</label>
+            <select value={area} onChange={e => setArea(e.target.value)} style={inp}>
+              <option value="">—</option>
+              {areas.map((a: string) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={fieldL}>Prioridad</label>
+            <select value={prioridad} onChange={e => setPrioridad(e.target.value)} style={inp}>
+              <option value="BAJA">Baja</option>
+              <option value="MEDIA">Media</option>
+              <option value="ALTA">Alta</option>
+              <option value="CRITICA">Crítica</option>
+            </select>
+          </div>
+          <div>
+            <label style={fieldL}>Categoría</label>
+            <select value={categoria} onChange={e => { setCategoria(e.target.value); setSubcategoria(''); setServicio('') }} style={inp}>
+              <option value="">—</option>
+              {categorias.map((c: any) => <option key={c.label} value={c.label}>{c.label}</option>)}
+            </select>
+          </div>
+          {subs.length > 0 && (
+            <div>
+              <label style={fieldL}>Subcategoría</label>
+              <select value={subcategoria} onChange={e => { setSubcategoria(e.target.value); setServicio('') }} style={inp}>
+                <option value="">—</option>
+                {subs.map((s: any) => <option key={s.label} value={s.label}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
+          {peticiones.length > 0 && (
+            <div>
+              <label style={fieldL}>Servicio / Petición</label>
+              <select value={servicio} onChange={e => setServicio(e.target.value)} style={inp}>
+                <option value="">—</option>
+                {peticiones.map((p: string) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={fieldL}>Asunto *</label>
+          <input value={asunto} onChange={e => setAsunto(e.target.value)} placeholder="Resumen breve del problema" style={inp} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={fieldL}>Descripción *</label>
+          <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={6} placeholder="Detalla el problema, pasos para reproducirlo, contexto, etc." style={{ ...inp, minHeight: 120, resize: 'vertical' }} />
+        </div>
+
+        {error && <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(248,113,113,.12)', color: 'var(--ul-danger)', fontSize: 12, marginBottom: 12 }}>{error}</div>}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={submit} disabled={submitting} style={{ ...btn, padding: '10px 22px' }}>
+            {submitting ? 'Creando...' : 'Crear ticket'}
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       icono: body.icono || '🎉',
       color: body.color || '#a78bfa',
       link: body.link || null,
+      imagen_url: body.imagen_url || null,
       activo: body.activo !== false,
       autor_email: u.email,
     }).select().single()

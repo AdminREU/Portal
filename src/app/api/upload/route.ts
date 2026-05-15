@@ -12,10 +12,15 @@ import { supabase } from '@/lib/supabase'
 export async function POST(req: Request) {
   try {
     const u = await validateToken(getToken(req))
-    requireRoles(u.rol, ['ADMIN'], u.rolesExtra)
 
     const url = new URL(req.url)
     const prefix = (url.searchParams.get('prefix') || 'portal').replace(/[^a-z0-9_-]/gi, '')
+
+    // Solo admin puede subir a contenedores de gestión (anuncios, cumples, eventos, branding).
+    // Cualquier usuario puede subir su propia foto al prefix 'perfiles'.
+    if (prefix !== 'perfiles') {
+      requireRoles(u.rol, ['ADMIN'], u.rolesExtra)
+    }
 
     const formData = await req.formData()
     const file = formData.get('file') as File

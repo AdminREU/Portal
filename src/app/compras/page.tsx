@@ -138,7 +138,7 @@ export default function ComprasPage() {
           {tabs.filter(([_,__,visible]) => visible).map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)} style={{
               padding:'14px 16px', background:'none', border:'none', borderBottom: tab === k ? `2px solid ${brand.color}` : '2px solid transparent',
-              fontSize:14, fontWeight: tab === k ? 700 : 500, color: tab === k ? '#191919' : '#666', cursor:'pointer', whiteSpace:'nowrap',
+              fontSize:14, fontWeight: tab === k ? 700 : 500, color: tab === k ? 'var(--ul-text)' : 'var(--ul-text-muted)', cursor:'pointer', whiteSpace:'nowrap',
             }}>{label}</button>
           ))}
         </div>
@@ -609,7 +609,7 @@ function DetailModal({ data, token, brand, user, puedeAprobar, puedeCompras, onC
               <div style={{ textAlign:'right', fontSize:13 }}>
                 <div style={{ color:'var(--ul-text-subtle)' }}>Subtotal: ${Number(o.subtotal).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
                 <div style={{ color:'var(--ul-text-subtle)' }}>IVA: ${Number(o.iva).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
-                <div style={{ fontSize:18, fontWeight:700, color: brand.color }}>Total: ${Number(o.total).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
+                <div style={{ fontSize:18, fontWeight:800, color:'var(--ul-accent)' }}>Total: ${Number(o.total).toLocaleString('es-MX', { minimumFractionDigits:2 })}</div>
               </div>
             </div>
           </Section>
@@ -673,7 +673,7 @@ function AdminPanel({ token, brand, settings, setSettings, niveles, setNiveles, 
         ].map(([k,label]) => (
           <button key={k} onClick={()=>setSub(k as any)} style={{
             padding:'8px 14px', borderRadius:8, border:'1px solid var(--ul-border)',
-            background: sub === k ? brand.color : '#fff', fontWeight: sub === k ? 700 : 500, cursor:'pointer', fontSize:13,
+            background: sub === k ? 'var(--ul-accent)' : 'var(--ul-surface)', color: sub === k ? 'var(--ul-accent-fg)' : 'var(--ul-text)', fontWeight: sub === k ? 700 : 500, cursor:'pointer', fontSize:13,
           }}>{label}</button>
         ))}
       </div>

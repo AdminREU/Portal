@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { email, rol } = await validateToken(getToken(req))
+    const { email, rol, rolesExtra } = await validateToken(getToken(req))
     const body = await req.json()
 
     // Generar ID del ticket
@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     const seq = parseInt(cfg['TICKET_SEQ'] ?? '0') + 1
     await supabase.from('settings').upsert({ key: 'TICKET_SEQ', value: String(seq) }, { onConflict: 'key' })
     const ticketId = `Ticket-${String(seq).padStart(pad, '0')}`
-    const usuarioEmail = rol !== 'USUARIO' && body.usuario_email ? body.usuario_email : email
+    // Técnicos/Admin pueden crear ticket en nombre de otro usuario (rol base o extra)
+    const esTecnico = rol !== 'USUARIO' || rolesExtra.includes('HELPDESK') || rolesExtra.includes('ADMIN')
+    const usuarioEmail = esTecnico && body.usuario_email ? body.usuario_email : email
 
     // Crear ticket
     const { data: ticket, error } = await supabase.from('tickets').insert({

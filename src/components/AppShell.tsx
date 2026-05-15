@@ -108,15 +108,23 @@ export default function AppShell({
     <div style={S.shell}>
       {/* ─── SIDEBAR ─────────────────────────────────────────── */}
       <aside style={S.sidebar}>
-        <div style={S.brand} onClick={() => router.push('/portal')}>
+        <div style={S.brand} onClick={() => router.push('/portal')} title="Ir al portal">
           {appLogoUrl
             ? <img src={appLogoUrl} alt="" style={S.brandLogo} />
             : <UltraMark />}
-          <div>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div className="ul-display" style={S.brandTitle}>{appLabel || 'ULTRA'}</div>
             {appVersion && <div style={S.brandSub}>{appVersion}</div>}
           </div>
         </div>
+
+        {/* Botón "Volver al portal" siempre visible si no estamos en /portal */}
+        {pathname !== '/portal' && app !== 'portal' && (
+          <button onClick={() => router.push('/portal')} style={S.backToPortal} title="Volver al portal">
+            <span style={{ fontSize: 14 }}>←</span>
+            <span>Volver al portal</span>
+          </button>
+        )}
 
         <nav style={S.nav}>
           {nav.map((group, gi) => (
@@ -273,6 +281,8 @@ export default function AppShell({
                       <div style={S.menuName}>{user?.nombre || user?.email}</div>
                       <div style={S.menuRol}>{rolesText}</div>
                     </div>
+                    <button onClick={() => { setOpenMenu(false); router.push('/perfil') }} style={S.menuItem}>👤 Mi perfil</button>
+                    <div style={S.menuSep} />
                     {pathname !== '/portal' && <button onClick={() => { setOpenMenu(false); router.push('/portal') }} style={S.menuItem}>◆ Portal</button>}
                     {pathname !== '/helpdesk' && <button onClick={() => { setOpenMenu(false); router.push('/helpdesk') }} style={S.menuItem}>🎫 Helpdesk</button>}
                     {pathname !== '/compras' && <button onClick={() => { setOpenMenu(false); router.push('/compras') }} style={S.menuItem}>🛒 Compras</button>}
@@ -324,6 +334,11 @@ const S: Record<string, React.CSSProperties> = {
   shell: { display: 'flex', minHeight: '100vh', background: 'var(--ul-bg)', color: 'var(--ul-text)' },
   sidebar: { width: 240, flexShrink: 0, background: 'var(--ul-bg-elev)', borderRight: '1px solid var(--ul-border)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh' },
   brand: { padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', borderBottom: '1px solid var(--ul-border)' },
+  backToPortal: {
+    display: 'flex', alignItems: 'center', gap: 8, margin: '12px 12px 0', padding: '9px 12px',
+    background: 'var(--ul-surface-2)', color: 'var(--ul-text)', border: '1px solid var(--ul-border)',
+    borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
+  },
   brandLogo: { width: 36, height: 36, borderRadius: 9, objectFit: 'cover', flexShrink: 0 },
   brandTitle: { fontSize: 16, color: 'var(--ul-text)', lineHeight: 1, letterSpacing: '.5px' },
   brandSub: { fontSize: 10, color: 'var(--ul-text-subtle)', marginTop: 3, fontWeight: 500 },

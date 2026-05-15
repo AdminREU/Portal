@@ -44,21 +44,22 @@ export default function AdminPage() {
 
   const nav = [
     {
-      title: 'ADMINISTRACIÓN',
+      title: 'NAVEGACIÓN',
+      items: [
+        { key: 'portal', label: '← Volver al portal', icon: '◆', href: '/portal' },
+        { key: 'helpdesk', label: 'Helpdesk', icon: '🎫', href: '/helpdesk' },
+        { key: 'compras', label: 'Compras', icon: '🛒', href: '/compras' },
+        { key: 'perfil', label: 'Mi perfil', icon: '👤', href: '/perfil' },
+      ],
+    },
+    {
+      title: 'CONFIGURACIÓN',
       items: [
         { key: 'avisos', label: 'Avisos', icon: '📢', onClick: () => setTab('avisos') },
         { key: 'flags', label: 'Funciones', icon: '⚡', onClick: () => setTab('flags') },
         { key: 'usuarios', label: 'Usuarios', icon: '👥', onClick: () => setTab('usuarios') },
-        { key: 'config', label: 'Config general', icon: '🛠', onClick: () => setTab('config') },
-        { key: 'ui', label: 'Branding', icon: '🎨', onClick: () => setTab('ui') },
-      ],
-    },
-    {
-      title: 'NAVEGACIÓN',
-      items: [
-        { key: 'portal', label: 'Inicio', icon: '◆', href: '/portal' },
-        { key: 'helpdesk', label: 'Helpdesk', icon: '🎫', href: '/helpdesk' },
-        { key: 'compras', label: 'Compras', icon: '🛒', href: '/compras' },
+        { key: 'config', label: 'Textos del portal', icon: '🛠', onClick: () => setTab('config') },
+        { key: 'ui', label: 'Marca / Branding', icon: '🎨', onClick: () => setTab('ui') },
       ],
     },
   ]
@@ -257,7 +258,7 @@ function Anuncios({ token, flash }: any) {
 
 function Cumples({ token, flash }: any) {
   const [list, setList] = useState<any[]>([])
-  const [form, setForm] = useState<any>({ nombre: '', email: '', departamento: '', tipo: 'cumple', dia: 1, mes: 1, anio: '', foto_url: '', mostrar: true })
+  const [form, setForm] = useState<any>({ nombre: '', email: '', departamento: '', tipo: 'cumple', dia: 1, mes: 1, anio: '', foto_url: '', mostrar: true, mensaje: '', imagen_url: '', link: '' })
   const [editId, setEditId] = useState<string | null>(null)
 
   async function load() {
@@ -274,7 +275,7 @@ function Cumples({ token, flash }: any) {
       const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...form, anio: form.anio || null }) }).then(r => r.json())
       if (!r.ok) throw new Error(r.error)
       flash('ok', editId ? 'Actualizado' : 'Creado')
-      setForm({ nombre: '', email: '', departamento: '', tipo: 'cumple', dia: 1, mes: 1, anio: '', foto_url: '', mostrar: true })
+      setForm({ nombre: '', email: '', departamento: '', tipo: 'cumple', dia: 1, mes: 1, anio: '', foto_url: '', mostrar: true, mensaje: '', imagen_url: '', link: '' })
       setEditId(null); load()
     } catch (e: any) { flash('err', e.message) }
   }
@@ -287,7 +288,7 @@ function Cumples({ token, flash }: any) {
 
   function startEdit(c: any) {
     setEditId(c.id)
-    setForm({ nombre: c.nombre, email: c.email || '', departamento: c.departamento || '', tipo: c.tipo, dia: c.dia, mes: c.mes, anio: c.anio || '', foto_url: c.foto_url || '', mostrar: c.mostrar })
+    setForm({ nombre: c.nombre, email: c.email || '', departamento: c.departamento || '', tipo: c.tipo, dia: c.dia, mes: c.mes, anio: c.anio || '', foto_url: c.foto_url || '', mostrar: c.mostrar, mensaje: c.mensaje || '', imagen_url: c.imagen_url || '', link: c.link || '' })
   }
 
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -319,10 +320,17 @@ function Cumples({ token, flash }: any) {
         <Field label="Foto de perfil">
           <ImageUploader token={token} prefix="cumples" value={form.foto_url} onChange={url => setForm({ ...form, foto_url: url })} />
         </Field>
+        <Field label="Mensaje (felicitación, dato curioso — se muestra al hacer click en el portal)">
+          <textarea value={form.mensaje} onChange={e => setForm({ ...form, mensaje: e.target.value })} style={{ ...input, minHeight: 70 }} placeholder="Ej: María cumple X años con nosotros. Le encanta..." />
+        </Field>
+        <Field label="Imagen banner (opcional, se muestra como banner en el modal del portal)">
+          <ImageUploader token={token} prefix="cumples" value={form.imagen_url} onChange={url => setForm({ ...form, imagen_url: url })} />
+        </Field>
+        <Field label="Link externo (opcional)"><input value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} style={input} placeholder="https://..." /></Field>
         <Field label=""><label style={checkLbl}><input type="checkbox" checked={form.mostrar} onChange={e => setForm({ ...form, mostrar: e.target.checked })} /> Mostrar en portal</label></Field>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button onClick={save} style={btnPrimary}>{editId ? 'Actualizar' : 'Crear'}</button>
-          {editId && <button onClick={() => { setEditId(null); setForm({ nombre: '', email: '', departamento: '', tipo: 'cumple', dia: 1, mes: 1, anio: '', foto_url: '', mostrar: true }) }} style={btnGhost}>Cancelar</button>}
+          {editId && <button onClick={() => { setEditId(null); setForm({ nombre: '', email: '', departamento: '', tipo: 'cumple', dia: 1, mes: 1, anio: '', foto_url: '', mostrar: true, mensaje: '', imagen_url: '', link: '' }) }} style={btnGhost}>Cancelar</button>}
         </div>
       </Card>
 
@@ -349,7 +357,7 @@ function Cumples({ token, flash }: any) {
 
 function Eventos({ token, flash }: any) {
   const [list, setList] = useState<any[]>([])
-  const [form, setForm] = useState<any>({ titulo: '', descripcion: '', tipo: 'evento', fecha: '', hora_inicio: '', lugar: '', icono: '🎉', color: '#a78bfa', activo: true })
+  const [form, setForm] = useState<any>({ titulo: '', descripcion: '', tipo: 'evento', fecha: '', hora_inicio: '', lugar: '', icono: '🎉', color: '#a78bfa', activo: true, imagen_url: '', link: '' })
   const [editId, setEditId] = useState<string | null>(null)
 
   async function load() {
@@ -367,7 +375,7 @@ function Eventos({ token, flash }: any) {
       const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...form, hora_inicio: form.hora_inicio || null }) }).then(r => r.json())
       if (!r.ok) throw new Error(r.error)
       flash('ok', editId ? 'Actualizado' : 'Creado')
-      setForm({ titulo: '', descripcion: '', tipo: 'evento', fecha: '', hora_inicio: '', lugar: '', icono: '🎉', color: '#a78bfa', activo: true })
+      setForm({ titulo: '', descripcion: '', tipo: 'evento', fecha: '', hora_inicio: '', lugar: '', icono: '🎉', color: '#a78bfa', activo: true, imagen_url: '', link: '' })
       setEditId(null); load()
     } catch (e: any) { flash('err', e.message) }
   }
@@ -380,7 +388,7 @@ function Eventos({ token, flash }: any) {
 
   function startEdit(e: any) {
     setEditId(e.id)
-    setForm({ titulo: e.titulo, descripcion: e.descripcion || '', tipo: e.tipo, fecha: e.fecha, hora_inicio: e.hora_inicio || '', lugar: e.lugar || '', icono: e.icono || '🎉', color: e.color || '#a78bfa', activo: e.activo })
+    setForm({ titulo: e.titulo, descripcion: e.descripcion || '', tipo: e.tipo, fecha: e.fecha, hora_inicio: e.hora_inicio || '', lugar: e.lugar || '', icono: e.icono || '🎉', color: e.color || '#a78bfa', activo: e.activo, imagen_url: e.imagen_url || '', link: e.link || '' })
   }
 
   return (
@@ -404,6 +412,10 @@ function Eventos({ token, flash }: any) {
           <Field label="Icono"><input value={form.icono} onChange={e => setForm({ ...form, icono: e.target.value })} style={input} /></Field>
           <Field label="Color"><input type="color" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} style={{ ...input, height: 38, padding: 4 }} /></Field>
         </Row>
+        <Field label="Imagen banner (opcional)">
+          <ImageUploader token={token} prefix="eventos" value={form.imagen_url} onChange={url => setForm({ ...form, imagen_url: url })} />
+        </Field>
+        <Field label="Link externo (opcional)"><input value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} style={input} placeholder="https://..." /></Field>
         <Field label=""><label style={checkLbl}><input type="checkbox" checked={form.activo} onChange={e => setForm({ ...form, activo: e.target.checked })} /> Activo</label></Field>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button onClick={save} style={btnPrimary}>{editId ? 'Actualizar' : 'Crear'}</button>
@@ -610,6 +622,8 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 function UsuariosTab({ token, flash }: any) {
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
+  const [busyRow, setBusyRow] = useState<string | null>(null)
+  const [editUser, setEditUser] = useState<any | null>(null)
 
   async function load() {
     const r = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
@@ -617,67 +631,184 @@ function UsuariosTab({ token, flash }: any) {
   }
   useEffect(() => { load() }, [])
 
+  /** Toggle robusto con optimistic update */
   async function toggleRol(u: any, rol: string) {
-    const extras: string[] = Array.isArray(u.roles_extra) ? [...u.roles_extra] : []
-    const has = extras.includes(rol)
-    const newExtras = has ? extras.filter(r => r !== rol) : [...extras, rol]
-    const r = await fetch(`/api/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ roles_extra: newExtras }) }).then(r => r.json())
-    if (r.ok) { flash('ok', `${has ? 'Removido' : 'Asignado'} ${rol} para ${u.email}`); load() } else flash('err', r.error)
+    setBusyRow(u.id + ':' + rol)
+    const currentExtras: string[] = Array.isArray(u.roles_extra) ? u.roles_extra : []
+    const has = currentExtras.includes(rol)
+    const newExtras = has
+      ? currentExtras.filter((r: string) => r !== rol)
+      : Array.from(new Set([...currentExtras, rol]))
+
+    // Optimistic: actualizar UI inmediatamente
+    setUsers(us => us.map(x => x.id === u.id ? { ...x, roles_extra: newExtras } : x))
+
+    try {
+      const r = await fetch(`/api/users/${u.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ roles_extra: newExtras }),
+      }).then(r => r.json())
+      if (!r.ok) throw new Error(r.error)
+      flash('ok', `${has ? '✗ Removido' : '✓ Asignado'} ${rol} · ${u.email}`)
+      // Refresca con datos del servidor para consistencia
+      if (r.user) setUsers(us => us.map(x => x.id === u.id ? r.user : x))
+    } catch (e: any) {
+      flash('err', e.message || 'Error al actualizar rol')
+      load() // recargar para deshacer optimistic
+    } finally { setBusyRow(null) }
   }
 
   async function toggleEstado(u: any) {
     const nuevo = u.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
-    if (nuevo === 'INACTIVO' && !confirm(`¿Desactivar acceso de ${u.email}?`)) return
-    const r = await fetch(`/api/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ estado: nuevo }) }).then(r => r.json())
-    if (r.ok) { flash('ok', `Usuario ${nuevo.toLowerCase()}`); load() } else flash('err', r.error)
+    if (nuevo === 'INACTIVO' && !confirm(`¿Desactivar acceso de ${u.email}? No podrá iniciar sesión.`)) return
+    setBusyRow(u.id + ':estado')
+    setUsers(us => us.map(x => x.id === u.id ? { ...x, estado: nuevo } : x))
+    try {
+      const r = await fetch(`/api/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ estado: nuevo }) }).then(r => r.json())
+      if (!r.ok) throw new Error(r.error)
+      flash('ok', `Usuario ${nuevo.toLowerCase()}`)
+    } catch (e: any) { flash('err', e.message); load() } finally { setBusyRow(null) }
+  }
+
+  async function saveUserProfile(updated: any) {
+    setBusyRow(updated.id + ':edit')
+    try {
+      const r = await fetch(`/api/users/${updated.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          nombre: updated.nombre, puesto: updated.puesto, departamento: updated.departamento, telefono: updated.telefono, foto_url: updated.foto_url,
+        }),
+      }).then(r => r.json())
+      if (!r.ok) throw new Error(r.error)
+      flash('ok', `Perfil de ${updated.email} actualizado`)
+      setEditUser(null); load()
+    } catch (e: any) { flash('err', e.message) } finally { setBusyRow(null) }
   }
 
   const filtered = users.filter(u => !q || u.email?.toLowerCase().includes(q.toLowerCase()) || u.nombre?.toLowerCase().includes(q.toLowerCase()))
 
   return (
-    <Card title="Usuarios">
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por email o nombre..." style={{ ...input, marginBottom: 12 }} />
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: 'var(--ul-surface-2)' }}>
-              <Th2>Usuario</Th2>
-              <Th2>Rol base</Th2>
-              {ROLES_DISPONIBLES.map(r => <Th2 key={r}><span style={{ fontSize: 10, fontWeight: 700 }}>{r}</span></Th2>)}
-              <Th2>Estado</Th2>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(u => {
-              const extras: string[] = Array.isArray(u.roles_extra) ? u.roles_extra : []
-              const inactivo = u.estado === 'INACTIVO'
-              return (
-                <tr key={u.id} style={{ borderBottom: '1px solid var(--ul-border)', opacity: inactivo ? .55 : 1 }}>
-                  <Td2>
-                    <div style={{ fontWeight: 600, color: 'var(--ul-text)' }}>{u.nombre || u.email.split('@')[0]}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ul-text-subtle)' }}>{u.email}</div>
-                  </Td2>
-                  <Td2><span style={{ ...miniBadge, background: u.rol === 'ADMIN' ? 'var(--ul-accent)' : 'var(--ul-surface-2)', color: u.rol === 'ADMIN' ? 'var(--ul-accent-fg)' : 'var(--ul-text)' }}>{u.rol}</span></Td2>
-                  {ROLES_DISPONIBLES.map(r => (
-                    <Td2 key={r}>
-                      <input type="checkbox" checked={extras.includes(r) || u.rol === r} onChange={() => toggleRol(u, r)} disabled={u.rol === r} style={{ accentColor: 'var(--ul-accent)' }} />
+    <>
+      <Card title="Usuarios y roles">
+        <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 10 }}>
+          Click en el checkbox para asignar/quitar el rol. Los cambios se guardan automáticamente.
+          Click en "✎" para editar el perfil del usuario (nombre, foto, depto, etc).
+        </div>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por email o nombre..." style={{ ...input, marginBottom: 12 }} />
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--ul-surface-2)' }}>
+                <Th2>Usuario</Th2>
+                <Th2>Rol base</Th2>
+                {ROLES_DISPONIBLES.map(r => <Th2 key={r}><span style={{ fontSize: 10, fontWeight: 700 }}>{r}</span></Th2>)}
+                <Th2>Estado</Th2>
+                <Th2>Perfil</Th2>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(u => {
+                const extras: string[] = Array.isArray(u.roles_extra) ? u.roles_extra : []
+                const inactivo = u.estado === 'INACTIVO'
+                return (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--ul-border)', opacity: inactivo ? .55 : 1 }}>
+                    <Td2>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {u.foto_url
+                          ? <img src={u.foto_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                          : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12 }}>{(u.nombre || u.email).charAt(0).toUpperCase()}</div>
+                        }
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--ul-text)' }}>{u.nombre || u.email.split('@')[0]}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ul-text-subtle)' }}>{u.email}</div>
+                        </div>
+                      </div>
                     </Td2>
-                  ))}
-                  <Td2>
-                    <button onClick={() => toggleEstado(u)} style={{
-                      ...btnSm,
-                      background: inactivo ? 'transparent' : 'rgba(52,211,153,.1)',
-                      color: inactivo ? 'var(--ul-text-subtle)' : 'var(--ul-success)',
-                      borderColor: inactivo ? 'var(--ul-border)' : 'var(--ul-success)',
-                    }}>{inactivo ? 'INACTIVO · Activar' : 'ACTIVO · Desactivar'}</button>
-                  </Td2>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    <Td2><span style={{ ...miniBadge, background: u.rol === 'ADMIN' ? 'var(--ul-accent)' : 'var(--ul-surface-2)', color: u.rol === 'ADMIN' ? 'var(--ul-accent-fg)' : 'var(--ul-text)' }}>{u.rol}</span></Td2>
+                    {ROLES_DISPONIBLES.map(r => {
+                      const tieneRol = extras.includes(r)
+                      const esRolBase = u.rol === r
+                      const busy = busyRow === (u.id + ':' + r)
+                      return (
+                        <Td2 key={r}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: esRolBase ? 'not-allowed' : 'pointer', opacity: busy ? .5 : 1 }} title={esRolBase ? 'Es su rol base, no se puede modificar aquí' : (tieneRol ? `Click para quitar ${r}` : `Click para asignar ${r}`)}>
+                            <input
+                              type="checkbox"
+                              checked={tieneRol || esRolBase}
+                              onChange={() => !esRolBase && !busy && toggleRol(u, r)}
+                              disabled={esRolBase || busy}
+                              style={{ accentColor: 'var(--ul-accent)', width: 16, height: 16, cursor: esRolBase ? 'not-allowed' : 'pointer' }}
+                            />
+                          </label>
+                        </Td2>
+                      )
+                    })}
+                    <Td2>
+                      <button onClick={() => toggleEstado(u)} disabled={busyRow === u.id + ':estado'} style={{
+                        ...btnSm,
+                        background: inactivo ? 'transparent' : 'rgba(52,211,153,.12)',
+                        color: inactivo ? 'var(--ul-text-subtle)' : 'var(--ul-success)',
+                        borderColor: inactivo ? 'var(--ul-border)' : 'var(--ul-success)',
+                      }}>{inactivo ? 'INACTIVO · Activar' : 'ACTIVO · Desactivar'}</button>
+                    </Td2>
+                    <Td2>
+                      <button onClick={() => setEditUser(u)} style={btnSm} title="Editar perfil">✎ Editar</button>
+                    </Td2>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      {editUser && <EditUserModal user={editUser} token={token} onSave={saveUserProfile} onClose={() => setEditUser(null)} />}
+    </>
+  )
+}
+
+function EditUserModal({ user, token, onSave, onClose }: any) {
+  const [form, setForm] = useState({
+    id: user.id, email: user.email,
+    nombre: user.nombre || '', puesto: user.puesto || '', departamento: user.departamento || '',
+    telefono: user.telefono || '', foto_url: user.foto_url || '',
+  })
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function uploadFoto(file: File) {
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    const r = await fetch('/api/upload?prefix=perfiles', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }).then(r => r.json())
+    if (r.ok) setForm(f => ({ ...f, foto_url: r.url }))
+    setUploading(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--ul-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--ul-bg-elev)', border: '1px solid var(--ul-border)', borderRadius: 14, padding: 22, maxHeight: '92vh', overflowY: 'auto' }}>
+        <h3 className="ul-display" style={{ fontSize: 16, color: 'var(--ul-text)', marginBottom: 4 }}>Editar perfil</h3>
+        <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 18 }}>{user.email}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          {form.foto_url
+            ? <img src={form.foto_url} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--ul-accent)' }} />
+            : <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 24 }}>{(form.nombre || user.email).charAt(0).toUpperCase()}</div>
+          }
+          <input ref={fileRef} type="file" accept="image/*" onChange={e => e.target.files?.[0] && uploadFoto(e.target.files[0])} style={{ display: 'none' }} />
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={btnGhost}>{uploading ? 'Subiendo...' : (form.foto_url ? 'Cambiar' : 'Subir foto')}</button>
+          {form.foto_url && <button onClick={() => setForm(f => ({ ...f, foto_url: '' }))} style={{ ...btnSm, color: 'var(--ul-danger)' }}>Quitar</button>}
+        </div>
+        <Field label="Nombre"><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} style={input} /></Field>
+        <Field label="Puesto"><input value={form.puesto} onChange={e => setForm({ ...form, puesto: e.target.value })} style={input} /></Field>
+        <Field label="Departamento"><input value={form.departamento} onChange={e => setForm({ ...form, departamento: e.target.value })} style={input} /></Field>
+        <Field label="Teléfono"><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} style={input} /></Field>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={btnGhost}>Cancelar</button>
+          <button onClick={() => onSave(form)} style={btnPrimary}>Guardar</button>
+        </div>
       </div>
-    </Card>
+    </div>
   )
 }
 

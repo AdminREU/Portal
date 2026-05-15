@@ -32,6 +32,9 @@ export async function POST(req: Request) {
       foto_url: body.foto_url || null,
       mostrar: body.mostrar !== false,
       notas: body.notas || null,
+      mensaje: body.mensaje || null,
+      imagen_url: body.imagen_url || null,
+      link: body.link || null,
     }).select().single()
     if (error) throw error
     return NextResponse.json({ ok: true, cumpleanos: data })

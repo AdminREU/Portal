@@ -8,7 +8,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const u = await validateToken(getToken(req))
     requireRoles(u.rol, ['ADMIN'], u.rolesExtra)
     const body = await req.json()
-    const allow = ['titulo','descripcion','tipo','fecha','hora_inicio','hora_fin','lugar','icono','color','link','activo']
+    const allow = ['titulo','descripcion','tipo','fecha','hora_inicio','hora_fin','lugar','icono','color','link','activo','imagen_url']
     const update: any = {}
     for (const k of allow) if (body[k] !== undefined) update[k] = body[k]
     const { error } = await supabase.from('eventos').update(update).eq('id', id)

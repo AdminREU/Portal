@@ -15,8 +15,8 @@ type Branding = {
 }
 type HeroSlide = { key: string; badge: string; title: string; subtitle: string; href: string; accent: string; icon: string; enabled: boolean }
 type Anuncio = { id: string; categoria: string; titulo: string; mensaje?: string; icono?: string; color?: string; prioridad: number; publicado_at: string; expira_at?: string; imagen_url?: string; autor_nombre?: string; link?: string }
-type Cumple = { id: string; nombre: string; tipo: string; mes: number; dia: number; anio?: number; departamento?: string; foto_url?: string; fecha_proxima: string; dias_faltantes: number }
-type Evento = { id: string; titulo: string; descripcion?: string; tipo: string; fecha: string; hora_inicio?: string; lugar?: string; icono?: string; color?: string }
+type Cumple = { id: string; nombre: string; tipo: string; mes: number; dia: number; anio?: number; departamento?: string; foto_url?: string; fecha_proxima: string; dias_faltantes: number; mensaje?: string; imagen_url?: string; link?: string; notas?: string }
+type Evento = { id: string; titulo: string; descripcion?: string; tipo: string; fecha: string; hora_inicio?: string; hora_fin?: string; lugar?: string; icono?: string; color?: string; imagen_url?: string; link?: string }
 type Tarea = { id: string; titulo: string; fecha: string; status: string; prioridad: string; modulo?: string }
 type Frase = { id: string; texto: string; autor?: string }
 
@@ -48,6 +48,8 @@ export default function PortalPage() {
   const [heroIdx, setHeroIdx] = useState(0)
   const [autoRotate, setAutoRotate] = useState(true)
   const [anuncioOpen, setAnuncioOpen] = useState<Anuncio | null>(null)
+  const [cumpleOpen, setCumpleOpen] = useState<Cumple | null>(null)
+  const [eventoOpen, setEventoOpen] = useState<Evento | null>(null)
 
   useEffect(() => {
     const t = localStorage.getItem('auth_token') ?? ''
@@ -183,7 +185,7 @@ export default function PortalPage() {
             </Panel>
           )}
 
-          {flags.PORTAL_ESPACIO_AMENO !== false && <EspacioAmeno cumples={cumples} eventos={eventos} />}
+          {flags.PORTAL_ESPACIO_AMENO !== false && <EspacioAmeno cumples={cumples} eventos={eventos} onCumple={setCumpleOpen} onEvento={setEventoOpen} />}
         </div>
       </div>
 
@@ -251,8 +253,10 @@ export default function PortalPage() {
         </>
       )}
 
-      {/* Modal de anuncio */}
+      {/* Modales detalle */}
       {anuncioOpen && <AnuncioModal a={anuncioOpen} onClose={() => setAnuncioOpen(null)} />}
+      {cumpleOpen && <CumpleModal c={cumpleOpen} onClose={() => setCumpleOpen(null)} />}
+      {eventoOpen && <EventoModal e={eventoOpen} onClose={() => setEventoOpen(null)} />}
     </AppShell>
   )
 }
@@ -293,7 +297,7 @@ function Hero({ slide, idx, total, onGo }: { slide: HeroSlide; idx: number; tota
 }
 
 /* ────────── Espacio Ameno (mejorado visual) ────────── */
-function EspacioAmeno({ cumples, eventos }: { cumples: Cumple[]; eventos: Evento[] }) {
+function EspacioAmeno({ cumples, eventos, onCumple, onEvento }: { cumples: Cumple[]; eventos: Evento[]; onCumple: (c: Cumple) => void; onEvento: (e: Evento) => void }) {
   const items = useMemo(() => {
     const arr: any[] = []
     for (const c of cumples) {
@@ -320,20 +324,24 @@ function EspacioAmeno({ cumples, eventos }: { cumples: Cumple[]; eventos: Evento
   return (
     <Panel title="ESPACIO AMENO" icon="🎈">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {items.map((it, i) => it.kind === 'cumple' ? (
-          <CumpleCard key={it.id} c={it.data} when={it.when} />
+        {items.map((it) => it.kind === 'cumple' ? (
+          <CumpleCard key={it.id} c={it.data} when={it.when} onClick={() => onCumple(it.data)} />
         ) : (
-          <EventoCard key={it.id} e={it.data} when={it.when} />
+          <EventoCard key={it.id} e={it.data} when={it.when} onClick={() => onEvento(it.data)} />
         ))}
       </div>
     </Panel>
   )
 }
 
-function CumpleCard({ c, when }: { c: Cumple; when: { txt: string; tone: string } }) {
+function CumpleCard({ c, when, onClick }: { c: Cumple; when: { txt: string; tone: string }; onClick: () => void }) {
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
   const esCumpleHoy = c.dias_faltantes === 0
   return (
+    <button onClick={onClick} style={{
+      width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit',
+      padding: 0, background: 'transparent', display: 'block',
+    }}>
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, padding: 10,
       borderRadius: 10,
@@ -372,11 +380,13 @@ function CumpleCard({ c, when }: { c: Cumple; when: { txt: string; tone: string 
         color: when.tone === 'hot' ? 'var(--ul-accent-fg)' : 'var(--ul-text-muted)',
       }}>{when.txt}</div>
     </div>
+    </button>
   )
 }
 
-function EventoCard({ e, when }: { e: Evento; when: { txt: string; tone: string } }) {
+function EventoCard({ e, when, onClick }: { e: Evento; when: { txt: string; tone: string }; onClick: () => void }) {
   return (
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit', padding: 0, background: 'transparent', display: 'block' }}>
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10,
       background: 'var(--ul-surface-2)', border: '1px solid var(--ul-border)',
@@ -389,6 +399,85 @@ function EventoCard({ e, when }: { e: Evento; when: { txt: string; tone: string 
         <div style={{ fontSize: 10, color: 'var(--ul-text-muted)', marginTop: 2 }}>{e.lugar || e.tipo}{e.hora_inicio ? ` · ${e.hora_inicio.slice(0, 5)}` : ''}</div>
       </div>
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.5px', whiteSpace: 'nowrap', padding: '4px 9px', borderRadius: 999, background: when.tone === 'hot' ? 'var(--ul-accent)' : 'var(--ul-surface-hover)', color: when.tone === 'hot' ? 'var(--ul-accent-fg)' : 'var(--ul-text-muted)' }}>{when.txt}</div>
+    </div>
+    </button>
+  )
+}
+
+/* ────────── Modales de Cumpleaños y Eventos ────────── */
+function CumpleModal({ c, onClose }: { c: Cumple; onClose: () => void }) {
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+  const esCumpleHoy = c.dias_faltantes === 0
+  const titulo = c.tipo === 'aniversario' ? `Aniversario de ${c.nombre}` : c.tipo === 'onomastico' ? `Onomástico de ${c.nombre}` : `Cumpleaños de ${c.nombre}`
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--ul-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100, animation: 'ul-fade-in .15s ease both' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, maxHeight: '92vh', overflow: 'auto', background: 'var(--ul-bg-elev)', border: '1px solid var(--ul-border)', borderRadius: 18, boxShadow: 'var(--ul-shadow-lg)' }}>
+        {c.imagen_url
+          ? <div style={{ width: '100%', height: 220, overflow: 'hidden', borderTopLeftRadius: 18, borderTopRightRadius: 18 }}>
+              <img src={c.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          : <div style={{ height: 140, background: esCumpleHoy ? 'linear-gradient(135deg, var(--ul-accent), #ff8a00)' : 'linear-gradient(135deg, var(--ul-surface), var(--ul-surface-2))', position: 'relative', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' }}>
+              <span aria-hidden style={{ position: 'absolute', top: 20, right: 30, fontSize: 80, opacity: .35, transform: 'rotate(15deg)' }}>{c.tipo === 'aniversario' ? '🎊' : '🎂'}</span>
+              <span aria-hidden style={{ position: 'absolute', top: 60, left: 30, fontSize: 50, opacity: .25, transform: 'rotate(-10deg)' }}>🎉</span>
+            </div>
+        }
+        <div style={{ padding: 26, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: -54, marginBottom: 12 }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', background: 'var(--ul-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid var(--ul-bg-elev)', boxShadow: '0 4px 16px rgba(0,0,0,.2)', flexShrink: 0 }}>
+              {c.foto_url
+                ? <img src={c.foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontWeight: 900, fontSize: 30, color: 'var(--ul-accent-fg)' }}>{c.nombre.charAt(0).toUpperCase()}</span>
+              }
+            </div>
+          </div>
+          {esCumpleHoy && <span style={{ display: 'inline-block', padding: '4px 10px', background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', borderRadius: 999, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>🎉 ES HOY</span>}
+          <h2 className="ul-display" style={{ fontSize: 26, color: 'var(--ul-text)', letterSpacing: '-0.3px', marginBottom: 4 }}>{titulo}</h2>
+          <div style={{ fontSize: 13, color: 'var(--ul-text-muted)', marginBottom: 16 }}>
+            {meses[c.mes - 1]} {c.dia}{c.anio ? ` · ${c.anio}` : ''} {c.departamento ? ` · ${c.departamento}` : ''}
+            {c.tipo === 'aniversario' && c.anio && <span> · <strong style={{ color: 'var(--ul-accent)' }}>{new Date().getFullYear() - c.anio} años en Ultralam</strong></span>}
+          </div>
+          {(c.mensaje || c.notas) && <p style={{ fontSize: 14, color: 'var(--ul-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap', padding: '14px 16px', background: 'var(--ul-surface-2)', borderRadius: 10, marginBottom: 14 }}>{c.mensaje || c.notas}</p>}
+          {c.link && <a href={c.link} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '8px 14px', background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>Más información ↗</a>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', background: 'var(--ul-surface-2)', border: '1px solid var(--ul-border)', borderRadius: 8, color: 'var(--ul-text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EventoModal({ e, onClose }: { e: Evento; onClose: () => void }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--ul-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100, animation: 'ul-fade-in .15s ease both' }}>
+      <div onClick={ev => ev.stopPropagation()} style={{ width: '100%', maxWidth: 640, maxHeight: '92vh', overflow: 'auto', background: 'var(--ul-bg-elev)', border: '1px solid var(--ul-border)', borderRadius: 18, boxShadow: 'var(--ul-shadow-lg)' }}>
+        {e.imagen_url
+          ? <div style={{ width: '100%', height: 220, overflow: 'hidden', borderTopLeftRadius: 18, borderTopRightRadius: 18 }}>
+              <img src={e.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          : <div style={{ height: 140, background: `linear-gradient(135deg, ${e.color || '#a78bfa'}55, ${e.color || '#a78bfa'}11)`, position: 'relative', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' }}>
+              <span aria-hidden style={{ position: 'absolute', top: 30, right: 40, fontSize: 90, opacity: .45 }}>{e.icono || '🎉'}</span>
+            </div>
+        }
+        <div style={{ padding: 26 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, padding: '4px 10px', borderRadius: 4, background: 'var(--ul-surface-2)', color: 'var(--ul-text-muted)', textTransform: 'uppercase' }}>{e.tipo}</span>
+            <span style={{ fontSize: 11, color: 'var(--ul-text-subtle)', marginLeft: 'auto' }}>
+              {new Date(e.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {e.hora_inicio && ` · ${e.hora_inicio.slice(0, 5)}${e.hora_fin ? '–' + e.hora_fin.slice(0, 5) : ''}`}
+            </span>
+          </div>
+          <h2 className="ul-display" style={{ fontSize: 26, color: 'var(--ul-text)', letterSpacing: '-0.3px', marginBottom: 8 }}>
+            <span style={{ marginRight: 8 }}>{e.icono || '🎉'}</span>{e.titulo}
+          </h2>
+          {e.lugar && <div style={{ fontSize: 13, color: 'var(--ul-text-muted)', marginBottom: 12 }}>📍 {e.lugar}</div>}
+          {e.descripcion && <p style={{ fontSize: 14, color: 'var(--ul-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap', padding: '14px 16px', background: 'var(--ul-surface-2)', borderRadius: 10, marginBottom: 14 }}>{e.descripcion}</p>}
+          {e.link && <a href={e.link} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '8px 14px', background: 'var(--ul-accent)', color: 'var(--ul-accent-fg)', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>Más información ↗</a>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', background: 'var(--ul-surface-2)', border: '1px solid var(--ul-border)', borderRadius: 8, color: 'var(--ul-text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
