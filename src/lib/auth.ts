@@ -74,17 +74,16 @@ export async function createSession(email: string) {
   let user: any = existingUser
 
   if (!user) {
-    // Primer ingreso: rol base USUARIO. Admin asigna extras después.
+    // BOOTSTRAP: solo cuando el usuario es NUEVO, ADMIN_EMAILS lo crea como admin.
+    // Si el usuario ya existe, los cambios manuales desde /admin SIEMPRE ganan
+    // (no hay re-promoción automática en logins posteriores).
     const initialRol = shouldBeAdmin ? 'ADMIN' : 'USUARIO'
 
-    // INSERT resiliente: solo columnas base (email, rol, estado). roles_extra usa el
-    // DEFAULT '[]'::jsonb del schema y se setea después si hace falta. Así evitamos
-    // problemas con el schema cache de PostgREST/Supabase cuando se acaba de migrar.
+    // INSERT resiliente: solo columnas base. roles_extra usa DEFAULT '[]'::jsonb.
     const { data: newUser, error: insErr } = await supabase.from('users')
       .insert({ email, rol: initialRol, estado: 'ACTIVO' })
       .select().single()
     if (insErr) {
-      // Reintentar incluyendo roles_extra por si el insert mínimo requiere algo más
       const { data: retry, error: retryErr } = await supabase.from('users')
         .insert({ email, rol: initialRol, estado: 'ACTIVO', roles_extra: [] })
         .select().single()
@@ -94,20 +93,15 @@ export async function createSession(email: string) {
       user = newUser
     }
 
-    // Si debe ser admin, hacer un UPDATE separado para setear roles_extra
+    // Si es admin bootstrap, setear roles_extra
     if (shouldBeAdmin && user) {
       const { data: promoted } = await supabase.from('users')
         .update({ roles_extra: ['ADMIN'] }).eq('email', email).select().single()
       if (promoted) user = promoted
     }
-  } else if (shouldBeAdmin && user.rol !== 'ADMIN') {
-    // Force-promote admins de env var
-    const extras: string[] = Array.isArray(user.roles_extra) ? user.roles_extra : []
-    if (!extras.includes('ADMIN')) extras.push('ADMIN')
-    const { data: updated } = await supabase.from('users')
-      .update({ rol: 'ADMIN', roles_extra: extras }).eq('email', email).select().single()
-    user = updated ?? user
   }
+  // Importante: NO re-promovemos a usuarios existentes. Si admin les quita
+  // permisos desde /admin, esa decisión gana. ADMIN_EMAILS es solo bootstrap.
 
   if (!user) throw new Error('Error al crear usuario (sin detalles)')
   if (user.estado === 'INACTIVO') throw new Error('Usuario inactivo. Contacta al administrador.')
