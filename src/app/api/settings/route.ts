@@ -13,10 +13,17 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { rol } = await validateToken(getToken(req))
-    requireRoles(rol, ['ADMIN'])
-    const { key, value } = await req.json()
-    await supabase.from('settings').update({ value: String(value) }).eq('key', key)
-    return NextResponse.json({ ok: true })
+    const u = await validateToken(getToken(req))
+    requireRoles(u.rol, ['ADMIN'], u.rolesExtra)
+    const body = await req.json()
+    // Soporta { key, value } o { settings: [{key,value}, ...] }
+    const pairs: { key: string; value: any }[] = Array.isArray(body.settings)
+      ? body.settings
+      : (body.key ? [{ key: body.key, value: body.value }] : [])
+    if (!pairs.length) throw new Error('Sin settings para actualizar')
+    const rows = pairs.map(p => ({ key: p.key, value: String(p.value ?? '') }))
+    const { error } = await supabase.from('settings').upsert(rows, { onConflict: 'key' })
+    if (error) throw error
+    return NextResponse.json({ ok: true, count: rows.length })
   } catch (e: any) { return NextResponse.json({ ok: false, error: e.message }, { status: 400 }) }
 }

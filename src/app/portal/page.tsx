@@ -148,7 +148,7 @@ export default function PortalPage() {
     nav.push({
       title: 'ADMINISTRACIÓN',
       items: [
-        { key: 'admin', label: 'Panel general', icon: '⚙', onClick: () => alert('Panel admin — disponible en Fase 3') },
+        { key: 'admin', label: 'Panel general', icon: '⚙', href: '/admin' },
       ],
     })
   }
