@@ -66,19 +66,25 @@ export async function createSession(email: string) {
   const adminEmails = getAdminEmails()
   const shouldBeAdmin = adminEmails.includes(email.toLowerCase().trim())
 
-  let { data: user } = await supabase.from('users').select('*').eq('email', email).single()
+  // maybeSingle no lanza error si no existe; permite distinguir "no encontrado" de error real
+  const { data: existingUser, error: selErr } = await supabase
+    .from('users').select('*').eq('email', email).maybeSingle()
+  if (selErr) throw new Error(`Error al buscar usuario: ${selErr.message}`)
+
+  let user: any = existingUser
 
   if (!user) {
     // Primer ingreso: rol base USUARIO. Admin asigna extras después.
     const initialRol = shouldBeAdmin ? 'ADMIN' : 'USUARIO'
     const initialExtra = shouldBeAdmin ? ['ADMIN'] : []
-    const { data: newUser } = await supabase.from('users')
+    const { data: newUser, error: insErr } = await supabase.from('users')
       .insert({
         email,
         rol: initialRol,
         roles_extra: initialExtra,
         estado: 'ACTIVO',
       }).select().single()
+    if (insErr) throw new Error(`No se pudo crear el usuario: ${insErr.message}`)
     user = newUser
   } else if (shouldBeAdmin && user.rol !== 'ADMIN') {
     // Force-promote admins de env var
@@ -89,7 +95,7 @@ export async function createSession(email: string) {
     user = updated ?? user
   }
 
-  if (!user) throw new Error('Error al crear usuario')
+  if (!user) throw new Error('Error al crear usuario (sin detalles)')
   if (user.estado === 'INACTIVO') throw new Error('Usuario inactivo. Contacta al administrador.')
 
   await supabase.from('users').update({
@@ -122,7 +128,7 @@ export async function validateToken(token: string) {
 
   // Cargar roles_extra y perfil del usuario
   const { data: user } = await supabase.from('users')
-    .select('roles_extra, nombre, puesto, departamento, telefono, nivel_aprobacion')
+    .select('roles_extra, nombre, puesto, departamento, telefono, nivel_aprobacion, foto_url')
     .eq('email', session.email).single()
 
   const rolesExtra: string[] = Array.isArray(user?.roles_extra) ? user!.roles_extra : []
@@ -135,6 +141,7 @@ export async function validateToken(token: string) {
     puesto: user?.puesto ?? '',
     departamento: user?.departamento ?? '',
     telefono: user?.telefono ?? '',
+    fotoUrl: user?.foto_url ?? '',
     nivelAprobacion: user?.nivel_aprobacion ?? null,
     token,
   }

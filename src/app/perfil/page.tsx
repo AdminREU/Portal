@@ -61,10 +61,14 @@ export default function PerfilPage() {
         method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(form),
       }).then(r => r.json())
-      if (!r.ok) throw new Error(r.error)
-      flash('ok', 'Perfil actualizado')
-      setUser(u => u ? { ...u, ...form } : u)
-    } catch (e: any) { flash('err', e.message) } finally { setSaving(false) }
+      if (!r.ok) throw new Error(r.error || 'Error desconocido')
+      flash('ok', 'Perfil guardado correctamente')
+      // Usar la respuesta del servidor si la trae; sino aplicar el form localmente
+      if (r.user) setUser(u => u ? { ...u, ...r.user } : r.user)
+      else setUser(u => u ? { ...u, ...form } : u)
+    } catch (e: any) {
+      flash('err', `No se pudo guardar: ${e.message}`)
+    } finally { setSaving(false) }
   }
 
   async function uploadFoto(file: File) {
