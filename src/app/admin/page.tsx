@@ -666,6 +666,16 @@ function UsuariosTab({ token, flash }: any) {
     if (r.ok) { flash('ok', 'Sesión cerrada'); loadSessions() }
   }
 
+  async function killAllSessions(email: string) {
+    if (!confirm(`¿Cerrar TODAS las sesiones de ${email}? Forzará nuevo login con los permisos actualizados.`)) return
+    const r = await fetch('/api/admin/sessions', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ email }),
+    }).then(r => r.json())
+    if (r.ok) { flash('ok', `${r.count} sesión(es) cerrada(s) de ${email}`); loadSessions() }
+    else flash('err', r.error)
+  }
+
   /** Toggle robusto con optimistic update */
   async function toggleRol(u: any, rol: string) {
     setBusyRow(u.id + ':' + rol)
@@ -751,7 +761,7 @@ function UsuariosTab({ token, flash }: any) {
         <div style={{ fontSize: 12, color: 'var(--ul-text-subtle)', marginBottom: 10, lineHeight: 1.5 }}>
           <strong>Rol base:</strong> usa el desplegable para cambiarlo (incluye quitar/dar ADMIN).<br />
           <strong>Permisos extra:</strong> usa los checkboxes para agregar permisos adicionales sin cambiar el rol base.<br />
-          Los cambios se guardan automáticamente. Click en "✎" para editar perfil, "🔑" para limpiar OTP.
+          Los cambios se guardan automáticamente. Click en "✎" editar perfil · "🔑" limpiar OTP · "⎋" cerrar todas sus sesiones (fuerza nuevo login con permisos actualizados).
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por email o nombre..." style={{ ...input, flex: '1 1 240px' }} />
@@ -845,6 +855,7 @@ function UsuariosTab({ token, flash }: any) {
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button onClick={() => setEditUser(u)} style={btnSm} title="Editar perfil">✎</button>
                         <button onClick={() => setConfirmOtp(u.email)} style={{ ...btnSm, color: 'var(--ul-warning)', borderColor: 'var(--ul-warning)' }} title="Limpiar OTP (resetear intentos fallidos)">🔑</button>
+                        <button onClick={() => killAllSessions(u.email)} style={{ ...btnSm, color: 'var(--ul-danger)', borderColor: 'var(--ul-danger)' }} title="Cerrar TODAS las sesiones del usuario (forzar nuevo login)">⎋</button>
                       </div>
                     </Td2>
                   </tr>

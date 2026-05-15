@@ -15,8 +15,17 @@ export async function DELETE(req: Request) {
   try {
     const u = await validateToken(getToken(req))
     requireRoles(u.rol, ['ADMIN'], u.rolesExtra)
-    const { token } = await req.json()
-    await supabase.from('sessions').delete().eq('token', token)
-    return NextResponse.json({ ok: true })
+    const body = await req.json()
+    if (body.email) {
+      // Cerrar TODAS las sesiones de un usuario
+      const { error, count } = await supabase.from('sessions').delete({ count: 'exact' }).eq('email', body.email.toLowerCase().trim())
+      if (error) throw error
+      return NextResponse.json({ ok: true, count: count ?? 0 })
+    }
+    if (body.token) {
+      await supabase.from('sessions').delete().eq('token', body.token)
+      return NextResponse.json({ ok: true })
+    }
+    throw new Error('Especifica token o email')
   } catch (e: any) { return NextResponse.json({ ok: false, error: e.message }, { status: 400 }) }
 }

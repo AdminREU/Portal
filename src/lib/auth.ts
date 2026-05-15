@@ -140,16 +140,30 @@ export async function validateToken(token: string) {
     expires_at: newExpiry
   }).eq('token', token)
 
-  // Cargar roles_extra y perfil del usuario
+  // Cargar rol/estado/roles_extra/perfil ACTUALES del usuario (no del session)
+  // así los cambios de admin se reflejan en la siguiente request sin re-login.
   const { data: user } = await supabase.from('users')
-    .select('roles_extra, nombre, puesto, departamento, telefono, nivel_aprobacion, foto_url')
+    .select('rol, estado, roles_extra, nombre, puesto, departamento, telefono, nivel_aprobacion, foto_url')
     .eq('email', session.email).single()
 
-  const rolesExtra: string[] = Array.isArray(user?.roles_extra) ? user!.roles_extra : []
+  if (!user) throw new Error('Usuario no existe')
+  if (user.estado === 'INACTIVO') {
+    // El usuario fue desactivado: invalidar la sesión
+    await supabase.from('sessions').delete().eq('token', token)
+    throw new Error('Usuario inactivo. Contacta al administrador.')
+  }
+
+  const rolActual = (user.rol ?? session.rol) as Rol
+  const rolesExtra: string[] = Array.isArray(user.roles_extra) ? user.roles_extra : []
+
+  // Si el rol cambió, sincronizar la fila de sesión (para que /api/admin/sessions muestre el rol vigente)
+  if (rolActual !== session.rol) {
+    await supabase.from('sessions').update({ rol: rolActual }).eq('token', token)
+  }
 
   return {
     email: session.email,
-    rol: session.rol as Rol,
+    rol: rolActual,
     rolesExtra,
     nombre: user?.nombre ?? '',
     puesto: user?.puesto ?? '',
