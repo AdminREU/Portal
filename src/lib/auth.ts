@@ -76,16 +76,30 @@ export async function createSession(email: string) {
   if (!user) {
     // Primer ingreso: rol base USUARIO. Admin asigna extras después.
     const initialRol = shouldBeAdmin ? 'ADMIN' : 'USUARIO'
-    const initialExtra = shouldBeAdmin ? ['ADMIN'] : []
+
+    // INSERT resiliente: solo columnas base (email, rol, estado). roles_extra usa el
+    // DEFAULT '[]'::jsonb del schema y se setea después si hace falta. Así evitamos
+    // problemas con el schema cache de PostgREST/Supabase cuando se acaba de migrar.
     const { data: newUser, error: insErr } = await supabase.from('users')
-      .insert({
-        email,
-        rol: initialRol,
-        roles_extra: initialExtra,
-        estado: 'ACTIVO',
-      }).select().single()
-    if (insErr) throw new Error(`No se pudo crear el usuario: ${insErr.message}`)
-    user = newUser
+      .insert({ email, rol: initialRol, estado: 'ACTIVO' })
+      .select().single()
+    if (insErr) {
+      // Reintentar incluyendo roles_extra por si el insert mínimo requiere algo más
+      const { data: retry, error: retryErr } = await supabase.from('users')
+        .insert({ email, rol: initialRol, estado: 'ACTIVO', roles_extra: [] })
+        .select().single()
+      if (retryErr) throw new Error(`No se pudo crear el usuario: ${insErr.message}`)
+      user = retry
+    } else {
+      user = newUser
+    }
+
+    // Si debe ser admin, hacer un UPDATE separado para setear roles_extra
+    if (shouldBeAdmin && user) {
+      const { data: promoted } = await supabase.from('users')
+        .update({ roles_extra: ['ADMIN'] }).eq('email', email).select().single()
+      if (promoted) user = promoted
+    }
   } else if (shouldBeAdmin && user.rol !== 'ADMIN') {
     // Force-promote admins de env var
     const extras: string[] = Array.isArray(user.roles_extra) ? user.roles_extra : []
